@@ -44,7 +44,7 @@ RUN chmod +x /app/docker-entrypoint.sh
 ENV PORT=8080 \
     AIVEN_CA_FILE=/app/aiven-project-ca.pem \
     AIVEN_TRUSTSTORE=/tmp/aiven-truststore.jks \
-    JAVA_TOOL_OPTIONS="-XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
+    JAVA_TOOL_OPTIONS="-XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
 
 EXPOSE 8080
 

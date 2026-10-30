@@ -22,13 +22,16 @@ TRUSTSTORE_PASS="${AIVEN_TRUSTSTORE_PASS:-changeit}"
 if [ -f "$CA_FILE" ]; then
   echo "[entrypoint] Building truststore from $CA_FILE"
   rm -f "$TRUSTSTORE"
-  keytool -importcert -noprompt \
+  # keytool is a JVM tool, so it inherits JAVA_TOOL_OPTIONS. If those flags
+  # are bad, keytool dies too - run it with a clean environment so a JVM
+  # problem can never stop the truststore from being built.
+  JAVA_TOOL_OPTIONS="" keytool -importcert -noprompt \
     -alias aiven-project-ca \
     -file "$CA_FILE" \
     -keystore "$TRUSTSTORE" \
-    -storepass "$TRUSTSTORE_PASS" >/dev/null 2>&1 \
+    -storepass "$TRUSTSTORE_PASS" >/tmp/keytool.log 2>&1 \
     && echo "[entrypoint] Truststore ready at $TRUSTSTORE" \
-    || echo "[entrypoint] WARNING: could not build truststore, TLS may fail"
+    || { echo "[entrypoint] WARNING: could not build truststore"; cat /tmp/keytool.log; }
 else
   echo "[entrypoint] NOTE: $CA_FILE not found. If the MySQL host requires TLS,"
   echo "[entrypoint] mount the CA certificate via Render Secret Files and set"

@@ -44,5 +44,9 @@ services:
         value: "true"
 
       # Render injects PORT automatically; the entrypoint reads it.
+      # NOTE: pick ONE garbage collector. Specifying both -XX:+UseG1GC and
+      # -XX:+UseSerialGC makes the JVM refuse to start with
+      # "Error occurred during initialization of VM: Multiple garbage
+      # collectors selected". G1 is the right choice for a 512 MB container.
       - key: JAVA_TOOL_OPTIONS
-        value: -XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:+UseSerialGC -XX:TieredStopAtLevel=1
+        value: -XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:TieredStopAtLevel=1
