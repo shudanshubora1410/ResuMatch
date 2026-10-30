@@ -26,6 +26,18 @@ public class AliasIndexService {
     public synchronized void reload() {
         List<SkillEntity> skills = skillRepo.findAll();
         List<SkillAliasEntity> aliases = aliasRepo.findAll();
+
+        // Index skills by id for an O(1) lookup.
+        //
+        // The previous implementation did `skills.stream().filter(x -> x.id == a.skillId)`
+        // inside the alias loop. That is an O(n*m) scan AND it compares Long
+        // objects with `==` instead of `.equals()`, which only works by
+        // accident for ids inside the Long cache (-128..127).
+        java.util.Map<Long, SkillEntity> byId = new java.util.HashMap<>();
+        for (SkillEntity s : skills) {
+            if (s.id != null) byId.put(s.id, s);
+        }
+
         AliasIndex idx = new AliasIndex();
         List<AliasIndex.AliasRow> rows = new java.util.ArrayList<>();
         for (SkillEntity s : skills) {
@@ -35,7 +47,7 @@ public class AliasIndexService {
             if (!n.isEmpty()) rows.add(new AliasIndex.AliasRow(s.id, canon, n));
         }
         for (SkillAliasEntity a : aliases) {
-            SkillEntity s = skills.stream().filter(x -> x.id == a.skillId).findFirst().orElse(null);
+            SkillEntity s = byId.get(a.skillId);
             if (s == null) continue;
             String n = com.resumatch.ats.TextNormalizer.skillKey(a.aliasText);
             if (n.isEmpty()) continue;

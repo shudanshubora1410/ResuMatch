@@ -5,6 +5,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -81,12 +82,36 @@ public class SkillSeed implements CommandLineRunner {
         );
 
         java.util.Set<String> globalSeen = new java.util.HashSet<>();
+
+        // Collect everything first, then flush in one batch.
+        //
+        // Why: on a remote MySQL (Aiven) each individual INSERT is a network
+        // round-trip of roughly 150-200ms. Saving 48 skills + 107 aliases one
+        // row at a time meant ~28 seconds of pure latency, which exceeded the
+        // managed host's connection timeout and dropped the socket mid-seed
+        // ("Communications link failure / Socket closed"), leaving a
+        // half-seeded database.
+        //
+        // Building the lists in memory and calling saveAll() lets Hibernate
+        // use JDBC batching (spring.jpa.properties.hibernate.jdbc.batch_size),
+        // which turns ~155 round-trips into a handful.
+        List<SkillEntity> skillEntities = new ArrayList<>();
+        List<SkillAliasEntity> aliasEntities = new ArrayList<>();
+
         for (Seed s : seeds) {
             SkillEntity entity = new SkillEntity();
             entity.canonicalName = s.canonical;
             entity.category = s.category;
             entity.isActive = true;
-            SkillEntity saved = skillRepo.save(entity);
+            skillEntities.add(entity);
+        }
+
+        // Save the canonical skills first so we have their generated ids.
+        List<SkillEntity> savedSkills = skillRepo.saveAll(skillEntities);
+
+        for (int i = 0; i < seeds.size(); i++) {
+            Seed s = seeds.get(i);
+            SkillEntity saved = savedSkills.get(i);
             // Dedupe on the normalized form so e.g. "c++", "cpp", "c plus plus"
             // (which all normalize to "cpp") don't violate the unique index.
             // Also dedupe across seeds in case two skills share a normalized
@@ -101,15 +126,39 @@ public class SkillSeed implements CommandLineRunner {
                 al.skillId = saved.id;
                 al.aliasText = a;
                 al.normalizedAliasText = key;
+                aliasEntities.add(al);
+            }
+        }
+
+        try {
+            aliasRepo.saveAll(aliasEntities);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            // A residual unique-index collision despite the dedupe. Fall back
+            // to inserting one by one so a single bad row cannot lose all the
+            // other aliases.
+            System.out.println("[SkillSeed] batch insert hit a duplicate, retrying row by row");
+            for (SkillAliasEntity al : aliasEntities) {
                 try {
                     aliasRepo.save(al);
-                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-                    // Unique-index collision despite dedupe: skip and move on
-                    // rather than failing the whole boot.
-                    System.out.println("[SkillSeed] skipping duplicate alias: " + key);
+                } catch (org.springframework.dao.DataIntegrityViolationException ex2) {
+                    System.out.println("[SkillSeed] skipping duplicate alias: " + al.normalizedAliasText);
                 }
             }
         }
-        aliasIndexService.reload();
+
+        System.out.println("[SkillSeed] seeded " + savedSkills.size() + " skills, "
+                + aliasEntities.size() + " aliases");
+
+        try {
+            aliasIndexService.reload();
+        } catch (Exception e) {
+            // The alias index is a derived in-memory cache. If the refresh
+            // fails (for example a managed MySQL dropped the connection
+            // during the long seeding transaction) the rows are still in the
+            // database, so the index can be rebuilt on the next boot. Do not
+            // fail the whole application over it.
+            System.out.println("[SkillSeed] alias index reload failed (data is saved, "
+                    + "index will rebuild on next boot): " + e.getMessage());
+        }
     }
 }

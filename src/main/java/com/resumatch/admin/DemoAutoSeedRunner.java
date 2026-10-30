@@ -33,6 +33,9 @@ public class DemoAutoSeedRunner implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DemoAutoSeedRunner.class);
 
+    /** How many times to attempt the seed before giving up. */
+    private static final int MAX_ATTEMPTS = 3;
+
     private final UserRepository userRepo;
     private final AdminSeedController seedController;
     private final boolean autoSeed;
@@ -61,16 +64,35 @@ public class DemoAutoSeedRunner implements ApplicationRunner {
             return;
         }
 
-        try {
-            log.info("[DemoAutoSeed] Empty database detected - seeding demo data...");
-            seedController.seedDemoDataInternal();
-            log.info("[DemoAutoSeed] Demo data seeded successfully. "
-                            + "Log in as priya@demo.com / Demo123pass (seeker), "
-                            + "riya@technova.com / Demo123pass (recruiter), "
-                            + "admin@resumatch.local / Admin@123 (admin)");
-        } catch (Exception e) {
-            // Never fail the boot because demo data could not be created.
-            log.warn("[DemoAutoSeed] Auto-seed failed (app will still run): {}", e.getMessage());
+        // Retry a couple of times. On a managed MySQL (Aiven free tier) the
+        // server can drop the connection mid-transaction while the seeder
+        // writes ~150 rows over TLS - that surfaces as SQLSTATE(08S01).
+        // A retry usually succeeds because the pool opens a fresh connection.
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                log.info("[DemoAutoSeed] Empty database detected - seeding demo data (attempt {}/{})...",
+                        attempt, MAX_ATTEMPTS);
+                seedController.seedDemoDataInternal();
+                log.info("[DemoAutoSeed] Demo data seeded successfully. "
+                                + "Log in as priya@demo.com / Demo123pass (seeker), "
+                                + "riya@technova.com / Demo123pass (recruiter), "
+                                + "admin@resumatch.local / Admin@123 (admin)");
+                return;
+            } catch (Exception e) {
+                log.warn("[DemoAutoSeed] Attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, e.getMessage());
+                if (attempt == MAX_ATTEMPTS) {
+                    // Never fail the boot because demo data could not be created.
+                    log.warn("[DemoAutoSeed] Giving up - app will still run. "
+                            + "Seed manually from the admin panel or POST /api/admin/seed-demo-data.");
+                    return;
+                }
+                try {
+                    Thread.sleep(3000L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
         }
     }
 }
