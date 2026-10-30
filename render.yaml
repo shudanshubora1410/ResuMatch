@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: resumatch
+    runtime: docker
+    plan: free
+    region: singapore
+    autoDeploy: true
+
+    # /api/health is a pure-liveness endpoint: no database, no JPA, no
+    # repository beans. It answers in a few milliseconds, so Render never
+    # kills the instance for a slow first request.
+    # (The old path /api/public/needs-seed queried JPA repositories, and
+    # under lazy initialization the first call rebuilt the entire
+    # EntityManagerFactory inside the healthcheck request -> 502.)
+    healthCheckPath: /api/health
+
+    envVars:
+      # MySQL (Aiven or any other MySQL 8 host).
+      # DB_HOST, DB_PORT, DB_USER, DB_PASS and DB_NAME are set in the
+      # Render dashboard - never commit database credentials to a repo.
+      - key: SPRING_PROFILES_ACTIVE
+        value: mysql
+
+      # Aiven requires TLS. If your Aiven service enforces it, set DB_URL
+      # instead of the individual DB_* variables, e.g.
+      #   jdbc:mysql://host:port/resumatch?useSSL=true&requireSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      # - key: DB_URL
+      #   sync: false
+
+      # Seed the demo dataset on boot only when the database is empty.
+      # Safe to leave on: it never overwrites existing data.
+      - key: RESUMATCH_AUTO_SEED
+        value: "true"
+
+      # Render injects PORT automatically; the Dockerfile reads it.
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:+UseSerialGC -XX:TieredStopAtLevel=1

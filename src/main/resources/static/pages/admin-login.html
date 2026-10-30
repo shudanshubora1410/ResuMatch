@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin login · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+    </div>
+  </nav>
+
+  <div class="container" style="max-width: 460px; padding-top: 60px;">
+    <div class="card">
+      <h2>Admin login</h2>
+      <p class="muted">Default seed: <code>admin@resumatch.local</code> / <code>Admin@123</code></p>
+      <form id="f">
+        <div class="form-row">
+          <label>Email or name</label>
+          <input class="input" name="identifier" required value="admin@resumatch.local" />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input class="input" name="password" type="password" required value="Admin@123" />
+        </div>
+        <button class="btn primary" style="width:100%">Log in as admin</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('f').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const r = await api.post('/api/auth/login', Object.fromEntries(fd));
+        toast('Logged in', 'ok');
+        setTimeout(() => window.location.href = r.data.redirect || '/pages/admin-dashboard.html', 300);
+      } catch (_) {}
+    });
+  </script>
+</body>
+</html>

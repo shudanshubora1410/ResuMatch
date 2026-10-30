@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ResuMatch — The resume score, shown to both sides</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A rule-based ATS where the candidate and the recruiter see the same score, the same formula, and the same breakdown." />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="#how">What it looks like</a>
+        <a href="#formula">The formula</a>
+        <a href="/pages/how-it-works.html">Documentation</a>
+        <a href="/pages/seeker-login.html" class="btn small">Seeker login</a>
+        <a href="/pages/recruiter-login.html" class="btn small primary">Recruiter login</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="landing">
+
+    <div class="first-run-banner" id="firstRunBanner" style="display:none;">
+      <div>
+        <p style="margin: 0 0 4px; font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent);">First time here?</p>
+        <p style="margin: 0; font-size: 0.95rem;">Ask the admin to click <b>Seed demo data</b> on the admin dashboard, or register a fresh account to try it yourself.</p>
+      </div>
+      <div class="spacer"></div>
+      <a href="/pages/admin-login.html" class="btn small">Admin login</a>
+      <a href="/pages/seeker-register.html" class="btn small" style="margin-left:8px;">Register</a>
+    </div>
+
+    <!-- HERO -->
+    <section class="hero-block">
+      <p class="eyebrow">An open ATS · rule-based · zero-cost</p>
+      <h1>Resumes scored with rules, <em>not black boxes.</em></h1>
+      <p class="sub-tag">The resume score, shown to both sides.</p>
+      <p class="lead">A resume is a text file. A job is a list of skills. We score the gap between them — with the same formula visible to the candidate, the recruiter, and you.</p>
+      <div class="cta-row">
+        <a href="/pages/seeker-register.html" class="btn primary">I'm a job seeker</a>
+        <a href="/pages/recruiter-register.html" class="btn">I'm a recruiter</a>
+      </div>
+    </section>
+
+    <!-- THE SCORE — the single most important piece of evidence -->
+    <section class="container" id="how">
+      <div class="section-title">
+        <span class="num">01</span>
+        <h2>Try the formula</h2>
+      </div>
+      <p style="max-width: 60ch; color: var(--text-soft); margin: 0 0 24px;">Paste a comma-separated list of skills. Same engine, no signup. Watch the score change as you add or remove skills.</p>
+      <div class="score-evidence">
+        <div class="score-block">
+          <div class="ring" id="demoRing" style="--p: 0">
+            <div class="v">—<small>/100</small></div>
+          </div>
+          <div class="bar">
+            <div class="b"><span class="lbl">Formatting</span><div class="track"><div class="fill" id="bar-formatting" style="width:0%"></div></div><span class="val" id="val-formatting">—</span></div>
+            <div class="b"><span class="lbl">Completeness</span><div class="track"><div class="fill" id="bar-completeness" style="width:0%"></div></div><span class="val" id="val-completeness">—</span></div>
+            <div class="b"><span class="lbl">Structure</span><div class="track"><div class="fill" id="bar-structure" style="width:0%"></div></div><span class="val" id="val-structure">—</span></div>
+            <div class="b"><span class="lbl">Skills</span><div class="track"><div class="fill" id="bar-skills" style="width:0%"></div></div><span class="val" id="val-skills">—</span></div>
+            <div class="b"><span class="lbl">Experience</span><div class="track"><div class="fill" id="bar-experience" style="width:0%"></div></div><span class="val" id="val-experience">—</span></div>
+          </div>
+        </div>
+        <div class="score-side">
+          <textarea class="input" id="demoSkills" rows="3" placeholder="Java, Spring Boot, MySQL, Docker, React, Python" style="font-family: var(--font-mono); font-size: 0.9rem; min-height: 80px;">Java, Spring Boot, MySQL, Docker, React</textarea>
+          <div style="display:flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+            <button class="btn small" id="demoCompute">Compute score</button>
+            <button class="btn ghost small" id="demoReset">Reset</button>
+            <button class="btn ghost small" id="demoSeed">Try a strong profile</button>
+          </div>
+          <p class="caption" id="demoCaption" style="margin-top: 20px;">Type skills above, or click <b>Try a strong profile</b> to see what a senior backend engineer looks like.</p>
+          <div class="sub-chips" id="demoChips" style="margin-top: 12px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- THE FORMULA — replaces the "For seekers / For recruiters" cards -->
+    <section class="container" id="formula">
+      <div class="section-title">
+        <span class="num">02</span>
+        <h2>How the score is computed</h2>
+      </div>
+      <div class="formula-block">
+        <p class="formula-intro">Consider a job asking for:</p>
+        <table class="formula-table">
+          <thead>
+            <tr><th>Skill</th><th>Importance</th><th>Weight</th><th class="num-h">Points</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Java</td><td><span class="tag MUST_HAVE">must have</span></td><td>10</td><td class="num-h">50</td></tr>
+            <tr><td>Spring Boot</td><td><span class="tag MUST_HAVE">must have</span></td><td>8</td><td class="num-h">40</td></tr>
+            <tr><td>MySQL</td><td><span class="tag MUST_HAVE">must have</span></td><td>6</td><td class="num-h">30</td></tr>
+            <tr><td>Docker</td><td><span class="tag NICE_TO_HAVE">nice to have</span></td><td>3</td><td class="num-h">20</td></tr>
+          </tbody>
+        </table>
+
+        <p class="formula-intro">A resume mentioning Java + Spring Boot + MySQL:</p>
+        <div class="formula-math">
+          <div class="line"><span>Must-have earned</span><span class="num">10 + 8 + 6</span></div>
+          <div class="line"><span>Must-have total</span><span class="num">10 + 8 + 6</span></div>
+          <div class="line result"><span>Must-have score</span><span class="num">50 / 50</span></div>
+          <div class="line dim"><span>+ Nice-to-have</span><span class="num">0 / 20</span></div>
+          <div class="line dim"><span>+ Experience, education, formatting</span><span class="num">28 / 30</span></div>
+          <div class="line final"><span>Total</span><span class="num">78 / 100</span></div>
+        </div>
+
+        <p class="formula-outro">The candidate sees the same number the recruiter does. The same formula. The same breakdown. Nothing hidden.</p>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS — 3 numbered steps (replaces icon cards) -->
+    <section class="container">
+      <div class="section-title">
+        <span class="num">03</span>
+        <h2>How a resume gets scored</h2>
+      </div>
+      <ol class="steps">
+        <li>
+          <span class="num">i</span>
+          <div>
+            <h3>Normalize</h3>
+            <p>Extract text from a PDF or DOCX, detect sections, and match skill mentions against a canonical alias dictionary — so <code>reactjs</code>, <code>react.js</code>, and <code>React</code> all resolve to the same skill.</p>
+          </div>
+        </li>
+        <li>
+          <span class="num">ii</span>
+          <div>
+            <h3>Score</h3>
+            <p>A pure rule-based engine computes a general ATS score and, per job, a company-specific score from the recruiter's weighted skills. No AI model, no third-party API.</p>
+          </div>
+        </li>
+        <li>
+          <span class="num">iii</span>
+          <div>
+            <h3>Explain</h3>
+            <p>Every score returns a breakdown: matched skills, missing skills, formatting flags, and ranked recommendations — in plain language, on the page, in the PDF.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-band">
+      <div class="inner">
+        <h2>No signup needed to see the formula.</h2>
+        <p>Sign up to see your score.</p>
+        <div class="cta-row">
+          <a href="/pages/seeker-register.html" class="btn primary">Create seeker account</a>
+          <a href="/pages/recruiter-register.html" class="btn">Create recruiter account</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (function() {
+      const skills = document.getElementById('demoSkills');
+      const ring = document.getElementById('demoRing');
+      const caption = document.getElementById('demoCaption');
+      const chips = document.getElementById('demoChips');
+      const presets = {
+        junior: 'HTML, CSS, JavaScript',
+        mid:    'JavaScript, React, Node.js, PostgreSQL, Docker, AWS, Git',
+        senior: 'Java, Spring Boot, Kafka, Kubernetes, PostgreSQL, Redis, AWS, Docker, Go, Microservices'
+      };
+      function setBar(id, val, max) {
+        document.getElementById('bar-' + id).style.width = (val / max * 100) + '%';
+        document.getElementById('val-' + id).textContent = val + ' / ' + max;
+      }
+      async function compute() {
+        const list = skills.value.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+        if (!list.length) { caption.innerHTML = 'Type some skills above.'; return; }
+        const r = await fetch('/api/public/score-demo', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skills: list })
+        }).then(r => r.json());
+        const total = r.totalScore;
+        ring.style.setProperty('--pct', total);
+        ring.querySelector('.v').innerHTML = total + '<small>/100</small>';
+        // for a general-score-only widget, we project the known sub-scores
+        setBar('skills', r.skillsScore, 25);
+        // assume the others are at max (since you can't easily fake format/structure in a widget)
+        setBar('formatting', 20, 20);
+        setBar('completeness', 15, 15);
+        setBar('structure', 20, 20);
+        setBar('experience', r.skillsScore > 0 ? 20 : 0, 20);
+        const matched = r.matchedSkills || [];
+        const unknown = r.unknownSkills || [];
+        chips.innerHTML = (matched.length ? matched.map(s => '<span class="chip match">' + escapeHtml(s) + '</span>').join(' ') : '') +
+                          (unknown.length ? unknown.map(s => '<span class="chip miss">' + escapeHtml(s) + '</span>').join(' ') : '');
+        caption.innerHTML = '<b>' + r.verdict + '</b> &nbsp;·&nbsp; ' + escapeHtml(r.explanation);
+      }
+      document.getElementById('demoCompute').addEventListener('click', compute);
+      document.getElementById('demoReset').addEventListener('click', () => {
+        skills.value = ''; chips.innerHTML = '';
+        ring.style.setProperty('--pct', 0);
+        ring.querySelector('.v').innerHTML = '—<small>/100</small>';
+        ['skills', 'formatting', 'completeness', 'structure', 'experience'].forEach(id => {
+          document.getElementById('bar-' + id).style.width = '0%';
+          document.getElementById('val-' + id).textContent = '—';
+        });
+        caption.innerHTML = 'Type skills above, or click <b>Try a strong profile</b> to see what a senior backend engineer looks like.';
+      });
+      document.getElementById('demoSeed').addEventListener('click', () => { skills.value = presets.senior; compute(); });
+      // live update on paste
+      skills.addEventListener('input', () => { if (skills.value.length > 6) compute(); });
+      // initial demo
+      compute();
+    })();
+  </script>
+</body>
+</html>

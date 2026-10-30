@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Seeker login · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/seeker-register.html" class="btn small">Create account</a>
+        <a href="/pages/recruiter-login.html" class="btn small">Recruiter login</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="max-width: 480px; padding-top: 60px;">
+    <div class="card">
+      <h2>Welcome back, seeker</h2>
+      <p class="muted">Log in with the email or display name you used at signup.</p>
+      <form id="loginForm">
+        <div class="form-row">
+          <label>Email or name</label>
+          <input class="input" name="identifier" required placeholder="aman@example.com" />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input class="input" name="password" type="password" required />
+        </div>
+        <button class="btn primary" style="width:100%">Log in</button>
+      </form>
+      <p class="muted" style="margin-top: 14px; font-size: 0.9rem;">
+        <a href="#" id="forgotLink">Forgot password?</a> ·
+        New here? <a href="/pages/seeker-register.html">Create an account</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="container" id="resetBox" style="max-width: 480px; display:none;">
+    <div class="card">
+      <h3>Reset your password</h3>
+      <p class="muted">Enter your email. We'll log a reset token (check server console in dev mode).</p>
+      <form id="forgotForm">
+        <div class="form-row">
+          <label>Email</label>
+          <input class="input" name="email" type="email" required />
+        </div>
+        <button class="btn">Send reset token</button>
+      </form>
+      <p class="muted" id="resetResult" style="margin-top: 12px; font-size: 0.9rem;"></p>
+      <form id="resetForm" style="margin-top: 16px; display:none;">
+        <div class="form-row">
+          <label>Token (from email / dev console)</label>
+          <input class="input" name="token" required />
+        </div>
+        <div class="form-row">
+          <label>New password</label>
+          <input class="input" name="newPassword" type="password" required />
+        </div>
+        <button class="btn primary">Update password</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const r = await api.post('/api/auth/login', Object.fromEntries(fd));
+        toast('Logged in', 'ok');
+        setTimeout(() => window.location.href = r.data.redirect || '/pages/seeker-dashboard.html', 300);
+      } catch (_) {}
+    });
+    const forgotLink = document.getElementById('forgotLink');
+    const resetBox = document.getElementById('resetBox');
+    forgotLink.addEventListener('click', (e) => { e.preventDefault(); resetBox.style.display = 'block'; resetBox.scrollIntoView({behavior:'smooth'}); });
+    document.getElementById('forgotForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const r = await api.post('/api/auth/forgot-password', { email: fd.get('email') });
+      document.getElementById('resetResult').innerHTML = escapeHtml(r.message || 'If the email exists, a token was sent.');
+      document.getElementById('resetForm').style.display = 'block';
+    });
+    document.getElementById('resetForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const r = await api.post('/api/auth/reset-password', Object.fromEntries(fd));
+        toast(r.message || 'Password updated', 'ok');
+        setTimeout(() => window.location.href = '/pages/seeker-login.html', 800);
+      } catch (_) {}
+    });
+  </script>
+</body>
+</html>

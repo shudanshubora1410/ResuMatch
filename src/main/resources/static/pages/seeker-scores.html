@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My scores · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/seeker-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/seeker-dashboard.html">Dashboard</a>
+        <a href="/pages/seeker-resume.html">Resume</a>
+        <a href="/pages/seeker-jobs.html">Jobs</a>
+        <a href="/pages/seeker-scores.html" class="active">My scores</a>
+        <a href="/pages/seeker-applications.html">Applications</a>
+        <a href="#" id="logoutBtn" class="btn small">Log out</a>
+        <a href="#" id="notifBell" class="bell" title="Notifications">🔔</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="toolbar">
+      <div>
+        <p class="muted" style="margin:0 0 4px; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">My scores</p>
+        <h1 style="margin:0">Company-specific scores</h1>
+        <p class="muted" style="margin: 8px 0 0;">How you score against each job you've applied to, ranked by fit.</p>
+      </div>
+    </div>
+
+    <div class="scores-layout">
+      <div class="scores-list" id="scoresList">
+        <p class="muted" style="padding: 20px; margin: 0;">Loading…</p>
+      </div>
+      <div class="score-detail" id="scoreDetail">
+        <p class="muted">Select a job on the left to see the breakdown.</p>
+      </div>
+    </div>
+
+    <section style="margin-top: 64px;">
+      <div class="section-title">
+        <span class="num">·</span>
+        <h2>Skills gap across your applications</h2>
+      </div>
+      <p class="muted" style="max-width: 60ch;">The must-have skills recruiters consistently look for that you haven't mentioned yet. Addressing these would lift your score across most jobs.</p>
+      <div id="skillsGap" style="margin-top: 20px;"></div>
+    </section>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => { e.preventDefault(); await api.post('/api/auth/logout', {}); window.location.href = '/'; });
+
+    let allScores = [];
+    let activeId = null;
+
+    async function load() {
+      const me = await requireAuth('SEEKER'); if (!me) return;
+      allScores = (await api.get('/api/seeker/company-scores')).data;
+      renderList();
+      if (allScores.length) selectScore(allScores[0].applicationId);
+      loadSkillsGap();
+    }
+
+    function renderList() {
+      const list = document.getElementById('scoresList');
+      if (!allScores.length) {
+        list.innerHTML = '<p class="muted" style="padding: 20px; margin: 0;">No company scores yet. Apply to jobs to see them here.</p>';
+        return;
+      }
+      list.innerHTML = allScores.map(s => {
+        const ts = s.totalScore;
+        const cls = ts >= 80 ? 'high' : ts >= 50 ? 'mid' : 'low';
+        return `<div class="score-row ${activeId == s.applicationId ? 'active' : ''}" data-id="${s.applicationId}">
+          <div>
+            <div class="title">${escapeHtml(s.jobTitle || 'Job #' + s.jobId)}</div>
+            <div class="meta">Must ${fmtPct(s.mustHaveScore)} · Nice ${fmtPct(s.niceToHaveScore)}</div>
+          </div>
+          <div class="num ${cls}">${fmtPct(ts)}</div>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('.score-row').forEach(r => {
+        r.addEventListener('click', () => selectScore(Number(r.dataset.id)));
+      });
+    }
+
+    async function selectScore(id) {
+      activeId = id;
+      const s = allScores.find(x => x.applicationId === id);
+      if (!s) return;
+      renderList();
+      const m = s.matchedSkills || { mustHave: [], niceToHave: [] };
+      const ms = s.missingSkills || { mustHave: [], niceToHave: [] };
+      let exp = {};
+      try { exp = JSON.parse(s.explanation || '{}'); } catch (_) {}
+      const total = s.totalScore;
+      const verdict = total >= 80 ? 'Strong match' : total >= 60 ? 'Decent match' : total >= 40 ? 'Weak match' : 'Poor match';
+      const cls = total >= 80 ? 'high' : total >= 50 ? 'mid' : 'low';
+
+      document.getElementById('scoreDetail').innerHTML = `
+        <div class="toolbar" style="margin-bottom: 8px;">
+          <div>
+            <p class="meta">${escapeHtml(s.jobTitle || 'Job #' + s.jobId)}</p>
+            <h3>${verdict}</h3>
+          </div>
+          <div class="spacer"></div>
+          <div style="text-align: right;">
+            <div style="font-family: var(--font-serif); font-size: 3rem; line-height: 1; color: var(--${cls === 'high' ? 'primary' : cls === 'mid' ? 'warn' : 'danger'});">${fmtPct(total)}</div>
+            <div class="meta">of 100</div>
+          </div>
+        </div>
+
+        <div class="sub-score-list" style="margin: 20px 0 0;">
+          <div class="ss-row"><span>Must-have</span><span class="bar"><i style="width:${(exp.mustHave && exp.mustHave.score || 0)/50*100}%"></i></span><span class="val">${fmtPct(exp.mustHave && exp.mustHave.score || 0)} / 50</span></div>
+          <div class="ss-row"><span>Nice-to-have</span><span class="bar"><i style="width:${(exp.niceToHave && exp.niceToHave.score || 0)/20*100}%"></i></span><span class="val">${fmtPct(exp.niceToHave && exp.niceToHave.score || 0)} / 20</span></div>
+          <div class="ss-row"><span>Experience</span><span class="bar"><i style="width:${(exp.experience && exp.experience.score || 0)/15*100}%"></i></span><span class="val">${fmtPct(exp.experience && exp.experience.score || 0)} / 15</span></div>
+          <div class="ss-row"><span>Education</span><span class="bar"><i style="width:${(exp.education && exp.education.score || 0)/5*100}%"></i></span><span class="val">${fmtPct(exp.education && exp.education.score || 0)} / 5</span></div>
+          <div class="ss-row"><span>Formatting</span><span class="bar"><i style="width:${(exp.formatting && exp.formatting.score || 0)/10*100}%"></i></span><span class="val">${fmtPct(exp.formatting && exp.formatting.score || 0)} / 10</span></div>
+        </div>
+
+        <div style="margin-top: 28px;">
+          <h4 style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;">Matched · must have</h4>
+          <div class="chips">${(m.mustHave || []).map(x => '<span class="chip match">' + escapeHtml(x) + '</span>').join('') || '<span class="muted">none</span>'}</div>
+          <h4 style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 20px 0 12px;">Missing · must have</h4>
+          <div class="chips">${(ms.mustHave || []).map(x => '<span class="chip miss">' + escapeHtml(x) + '</span>').join('') || '<span class="muted">none</span>'}</div>
+        </div>
+
+        <h4 style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 28px 0 12px;">Recommendations</h4>
+        ${(s.recommendations || []).map((r, i) => '<div class="recommendation"><span class="idx">' + (i+1) + '</span><div>' + escapeHtml(r) + '</div></div>').join('')}
+
+        <div class="simulator">
+          <h4>What-if simulator</h4>
+          <p class="muted" style="margin: 0 0 12px; font-size: 0.9rem;">Hypothetically add a skill and see your projected score. Same formula as the backend.</p>
+          <div class="toolbar">
+            <input class="input" id="hypo" placeholder="e.g. Docker" style="max-width: 240px;" />
+            <button class="btn" id="runHypo">Project score</button>
+          </div>
+          <div id="hypoResult" class="result" style="display: none;"></div>
+        </div>
+      `;
+
+      const versions = (await api.get('/api/seeker/resumes')).data;
+      document.getElementById('runHypo').addEventListener('click', async () => {
+        const inp = document.getElementById('hypo').value.trim();
+        if (!inp) return;
+        const r = await api.post('/api/seeker/simulate-score', {
+          resumeVersionId: versions[0].versionId,
+          jobId: s.jobId,
+          hypotheticalSkills: [inp]
+        });
+        document.getElementById('hypoResult').style.display = 'block';
+        document.getElementById('hypoResult').innerHTML = `
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <div class="num">${fmtPct(r.data.total)} <span style="color: var(--muted); font-size: 1rem;">/ 100</span></div>
+            <div class="muted" style="font-size: 0.88rem;">Projected if you added <b>${escapeHtml(inp)}</b>. Must-have ${fmtPct(r.data.mustHave)} · Nice ${fmtPct(r.data.niceToHave)}</div>
+          </div>
+        `;
+      });
+    }
+
+    async function loadSkillsGap() {
+      const gap = (await api.get('/api/seeker/skills-gap')).data;
+      const box = document.getElementById('skillsGap');
+      if (gap.totalApplicationsAnalyzed === 0) {
+        box.innerHTML = '<p class="muted">Apply to a few jobs and we will show which skills recruiters look for that you don\'t mention yet.</p>';
+      } else if (gap.topMissing.length === 0) {
+        box.innerHTML = '<p class="muted">You matched every must-have skill in your last ' + gap.totalApplicationsAnalyzed + ' applications. Impressive.</p>';
+      } else {
+        box.innerHTML = gap.topMissing.map(g => `
+          <div class="gap-row">
+            <div class="gap-name">${escapeHtml(g.skill)}</div>
+            <div class="gap-bar"><div style="width:${g.missingPct}%"></div></div>
+            <div class="gap-pct">${g.missingPct}%</div>
+          </div>
+        `).join('');
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Resume · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/seeker-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/seeker-dashboard.html">Dashboard</a>
+        <a href="/pages/seeker-resume.html" class="active">Resume</a>
+        <a href="/pages/seeker-jobs.html">Jobs</a>
+        <a href="/pages/seeker-scores.html">My scores</a>
+        <a href="/pages/seeker-applications.html">Applications</a>
+        <a href="#" id="logoutBtn" class="btn small">Log out</a>
+        <a href="#" id="notifBell" class="bell" title="Notifications">🔔</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="toolbar">
+      <div>
+        <p class="muted" style="margin:0 0 4px; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">Resume</p>
+        <h1 id="pageTitle" style="margin:0">Your resume</h1>
+      </div>
+      <div class="spacer"></div>
+      <a id="pdfLink" class="btn ghost" style="display:none;">Export PDF report</a>
+    </div>
+
+    <!-- 01: The upload zone + version timeline -->
+    <section style="margin-top: 32px;">
+      <div class="section-title">
+        <span class="num">01</span>
+        <h2>Upload a new version</h2>
+      </div>
+      <div class="upload-zone" id="drop">
+        <div class="upload-inner">
+          <p class="upload-eyebrow">PDF · DOCX · TXT</p>
+          <h3 style="margin: 8px 0 4px;">Drop your resume here</h3>
+          <p class="muted" style="margin: 0 0 20px;">or click to browse. We'll extract the text, score it, and explain the result.</p>
+          <input type="file" id="file" accept=".pdf,.docx,.txt" style="display:none;" />
+          <button class="btn primary" id="browseBtn">Choose file</button>
+          <div style="margin-top: 16px;">
+            <input class="input" id="label" placeholder="Version label (optional, e.g. 'Java 2026 v1')" style="max-width: 360px;" />
+          </div>
+          <button class="btn" id="uploadBtn" style="margin-top: 12px; display:none;">Score this version</button>
+        </div>
+      </div>
+
+      <div style="margin-top: 32px;">
+        <p class="muted" style="font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;">All versions</p>
+        <div id="versionsTimeline" class="timeline"></div>
+      </div>
+    </section>
+
+    <!-- 02: The result panel (shown after upload) -->
+    <section id="result" style="margin-top: 56px; display:none;">
+      <div class="section-title">
+        <span class="num">02</span>
+        <h2>Your latest score</h2>
+        <span class="muted" id="resultVersion" style="margin-left:auto; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;"></span>
+      </div>
+
+      <div class="result-grid">
+        <!-- Left: candidate contact card -->
+        <div class="contact-card">
+          <p class="muted" style="font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;">Extracted from your resume</p>
+          <h3 id="resName" style="margin: 0 0 4px; font-size: 1.4rem;">—</h3>
+          <div id="resContact" class="muted" style="font-size: 0.9rem; line-height: 1.7;"></div>
+          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);">
+            <p class="muted" style="font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 8px;">Matched skills</p>
+            <div id="resSkills" class="chips"></div>
+          </div>
+        </div>
+
+        <!-- Right: score + verdict -->
+        <div class="score-card">
+          <div class="score-block" style="grid-template-columns: 130px 1fr; gap: 28px; margin: 0 0 20px;">
+            <div id="resRing"></div>
+            <div>
+              <p class="muted" style="font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Total</p>
+              <h2 id="resVerdict" style="margin: 0; font-size: 1.4rem;">—</h2>
+              <p id="resLine" class="muted" style="margin: 8px 0 0; font-size: 0.88rem; line-height: 1.5;"></p>
+            </div>
+          </div>
+          <div id="resSubs" class="sub-score-list"></div>
+        </div>
+      </div>
+
+      <!-- 03: What to fix -->
+      <div class="fix-section" style="margin-top: 40px;">
+        <div class="section-title">
+          <span class="num">03</span>
+          <h2>What to fix</h2>
+          <span class="muted" style="margin-left:auto; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">Ordered by impact</span>
+        </div>
+        <div id="fixList" class="fix-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => { e.preventDefault(); await api.post('/api/auth/logout', {}); window.location.href = '/'; });
+
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('file');
+    document.getElementById('browseBtn').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) document.getElementById('uploadBtn').style.display = 'inline-flex'; });
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+    drop.addEventListener('drop', e => {
+      if (e.dataTransfer.files[0]) {
+        fileInput.files = e.dataTransfer.files;
+        document.getElementById('uploadBtn').style.display = 'inline-flex';
+      }
+    });
+
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
+      const f = fileInput.files[0];
+      if (!f) { toast('Choose a file first', 'err'); return; }
+      const form = new FormData();
+      form.append('file', f);
+      form.append('versionLabel', document.getElementById('label').value || '');
+      const btn = document.getElementById('uploadBtn');
+      btn.disabled = true; btn.textContent = 'Scoring…';
+      try {
+        const r = await api.upload('/api/seeker/resumes/upload', form);
+        renderResult(r.data);
+        loadVersions();
+        toast('Resume scored', 'ok');
+      } catch (_) {}
+      btn.disabled = false; btn.textContent = 'Score this version';
+    });
+
+    function renderResult(d) {
+      document.getElementById('result').style.display = 'block';
+      document.getElementById('resultVersion').textContent = 'v' + d.versionNumber + ' · ' + d.versionLabel;
+      document.getElementById('pdfLink').style.display = 'inline-flex';
+      document.getElementById('pdfLink').href = '/api/seeker/reports/' + d.versionId + '/pdf';
+
+      // Contact card
+      document.getElementById('resName').textContent = d.extraction.name || '—';
+      const email = d.extraction.email || '—';
+      const phone = d.extraction.phone || '—';
+      const years = d.extraction.estimatedYears || 0;
+      document.getElementById('resContact').innerHTML =
+        escapeHtml(email) + '<br>' + escapeHtml(phone) + '<br><span class="muted">' + fmtPct(years) + ' years experience</span>';
+
+      // Skills
+      const skillsHtml = (d.extraction.skills || []).map(s => '<span class="chip match">' + escapeHtml(s) + '</span>').join(' ');
+      document.getElementById('resSkills').innerHTML = skillsHtml || '<span class="muted">No canonical skills matched.</span>';
+
+      // Score ring + verdict
+      const total = d.score.total;
+      const resRing = document.getElementById('resRing');
+      resRing.innerHTML = '';
+      resRing.appendChild(animatedScoreRing(total));
+      const verdict = total >= 85 ? 'Strong' : total >= 70 ? 'Good' : total >= 50 ? 'Mixed' : 'Needs work';
+      const line = total >= 85 ? 'Resume reads cleanly across all dimensions.' :
+                   total >= 70 ? 'Solid foundation. The fixes below will tighten it.' :
+                   total >= 50 ? 'Mixed result — some sections carry weight, others need work.' :
+                   'Significant issues detected. Start with the HIGH-severity items below.';
+      document.getElementById('resVerdict').textContent = verdict;
+      document.getElementById('resLine').textContent = line;
+
+      // Sub-scores
+      const sc = d.score;
+      document.getElementById('resSubs').innerHTML = `
+        <div class="ss-row"><span>Formatting</span><span class="bar"><i style="width:${sc.formatting/20*100}%"></i></span><span class="val">${fmtPct(sc.formatting)} / 20</span></div>
+        <div class="ss-row"><span>Completeness</span><span class="bar"><i style="width:${sc.completeness/15*100}%"></i></span><span class="val">${fmtPct(sc.completeness)} / 15</span></div>
+        <div class="ss-row"><span>Structure</span><span class="bar"><i style="width:${sc.structure/20*100}%"></i></span><span class="val">${fmtPct(sc.structure)} / 20</span></div>
+        <div class="ss-row"><span>Skills</span><span class="bar"><i style="width:${sc.skills/25*100}%"></i></span><span class="val">${fmtPct(sc.skills)} / 25</span></div>
+        <div class="ss-row"><span>Experience</span><span class="bar"><i style="width:${sc.experience/20*100}%"></i></span><span class="val">${fmtPct(sc.experience)} / 20</span></div>
+      `;
+
+      // What to fix — merge flags + recommendations, sort by severity
+      const fixes = [];
+      (d.flags || []).forEach(f => fixes.push({ sev: f.severity, text: f.message, section: f.section, kind: 'flag' }));
+      (d.recommendations || []).forEach(r => fixes.push({ sev: 'LOW', text: r, section: '', kind: 'rec' }));
+      // sort: HIGH first, MEDIUM, LOW
+      const sevOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+      fixes.sort((a, b) => (sevOrder[a.sev] || 9) - (sevOrder[b.sev] || 9));
+      const fixHtml = fixes.length ? fixes.map(f => `
+        <div class="fix-row sev-${f.sev}">
+          <div class="fix-sev">${f.sev}</div>
+          <div class="fix-body">
+            ${f.section ? '<span class="fix-section">' + escapeHtml(f.section) + '</span>' : ''}
+            <div class="fix-text">${escapeHtml(f.text)}</div>
+          </div>
+        </div>
+      `).join('') : '<p class="muted">Nothing flagged. Resume looks strong.</p>';
+      document.getElementById('fixList').innerHTML = fixHtml;
+
+      // Scroll to result
+      document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function loadVersions() {
+      const me = await requireAuth('SEEKER'); if (!me) return;
+      const versions = (await api.get('/api/seeker/resumes')).data;
+      const tl = document.getElementById('versionsTimeline');
+      if (!versions.length) {
+        tl.innerHTML = '<p class="muted">No versions yet. Upload your first resume above.</p>';
+        return;
+      }
+      tl.innerHTML = versions.map((v, i) => {
+        const isLatest = i === 0;
+        return `<div class="tl-item">
+          <div class="tl-dot ${isLatest ? 'latest' : ''}"></div>
+          <div class="tl-content">
+            <div class="tl-row">
+              <span class="tl-label">v${v.versionNumber}  ·  ${escapeHtml(v.versionLabel)}</span>
+              <span class="tl-score ${v.totalScore >= 80 ? 'high' : v.totalScore >= 50 ? 'mid' : 'low'}">${v.totalScore == null ? '—' : fmtPct(v.totalScore)}</span>
+            </div>
+            <div class="tl-meta">${escapeHtml(v.originalFileName)}  ·  ${fmtDate(v.uploadedAt)}</div>
+          </div>
+          <div class="tl-actions">
+            <button class="btn ghost small" data-id="${v.versionId}" data-act="view">View</button>
+            <a class="btn ghost small" href="/api/seeker/reports/${v.versionId}/pdf">PDF</a>
+          </div>
+        </div>`;
+      }).join('');
+
+      tl.querySelectorAll('button[data-act=view]').forEach(b => {
+        b.addEventListener('click', async () => {
+          const id = b.dataset.id;
+          const r = (await api.get('/api/seeker/resumes/' + id)).data;
+          const flags = (r.flags || []).map(f => ({ severity: f.severity, message: f.message, section: f.sectionName }));
+          renderResult({
+            versionId: id,
+            versionNumber: r.version.versionNumber,
+            versionLabel: r.version.versionLabel,
+            extraction: { name: r.extraction.extractedName, email: r.extraction.extractedEmail, phone: r.extraction.extractedPhone, estimatedYears: r.extraction.experienceYears, skills: r.extraction.skillsJson ? JSON.parse(r.extraction.skillsJson) : [] },
+            flags,
+            score: r.score,
+            recommendations: (r.score && r.score.explanationJson) ? (JSON.parse(r.score.explanationJson).topRecommendations || []) : []
+          });
+        });
+      });
+    }
+
+    (async () => {
+      const me = await requireAuth('SEEKER');
+      if (!me) return;
+      document.getElementById('pageTitle').textContent = me.displayName + "'s resume";
+      await loadVersions();
+    })();
+  </script>
+</body>
+</html>

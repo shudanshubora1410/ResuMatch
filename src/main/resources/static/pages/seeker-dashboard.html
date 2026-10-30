@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/seeker-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/seeker-dashboard.html" class="active">Dashboard</a>
+        <a href="/pages/seeker-resume.html">Resume</a>
+        <a href="/pages/seeker-jobs.html">Jobs</a>
+        <a href="/pages/seeker-applications.html">Applications</a>
+        <a href="/pages/seeker-scores.html">My scores</a>
+        <a href="#" id="logoutBtn" class="btn small">Log out</a>
+        <a href="#" id="notifBell" class="bell" title="Notifications">🔔</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="toolbar">
+      <div>
+        <p class="muted" style="margin:0 0 4px; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">Seeker dashboard</p>
+        <h1 id="hello" style="margin:0">Welcome back</h1>
+      </div>
+      <div class="spacer"></div>
+      <a href="/pages/seeker-resume.html" class="btn primary">Upload resume</a>
+    </div>
+
+    <!-- 01: the score — the only thing that should be loud -->
+    <section style="margin-top: 40px;">
+      <div class="section-title">
+        <span class="num">01</span>
+        <h2>General ATS score</h2>
+      </div>
+      <div class="hero-score">
+        <div id="ringBox"></div>
+        <div class="hero-score-side">
+          <p id="scoreSubtitle" class="muted" style="margin:0 0 16px;">Upload a resume to see your score.</p>
+          <div id="subScoreList" class="sub-score-list"></div>
+          <div id="recsList" style="margin-top: 20px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02: applications — quiet summary -->
+    <section style="margin-top: 56px;">
+      <div class="section-title">
+        <span class="num">02</span>
+        <h2>Applications</h2>
+      </div>
+      <div class="app-summary">
+        <div class="app-count">
+          <div class="big" id="appsCount">—</div>
+          <div class="lbl">total submitted</div>
+        </div>
+        <div style="flex:1; min-width: 240px;">
+          <canvas id="trendChart" style="max-height: 100px;"></canvas>
+          <p class="muted" style="margin: 6px 0 0; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Score trend across versions</p>
+        </div>
+        <a href="/pages/seeker-applications.html" class="btn">View all →</a>
+      </div>
+    </section>
+
+    <!-- 03: top recommendations — top 3 jobs that fit you -->
+    <section style="margin-top: 56px;">
+      <div class="section-title">
+        <span class="num">03</span>
+        <h2>Best-fit jobs for you</h2>
+      </div>
+      <div id="recJobsList"></div>
+      <p style="margin-top: 16px;"><a href="/pages/seeker-jobs.html" class="muted" style="border-bottom: 1px dotted var(--line-strong);">Browse all open jobs →</a></p>
+    </section>
+
+    <!-- 04: insights — moved off the dashboard into the dedicated page -->
+    <section style="margin-top: 56px;">
+      <div class="section-title">
+        <span class="num">04</span>
+        <h2>Insights</h2>
+      </div>
+      <div class="insight-grid">
+        <a class="insight-tile" href="/pages/seeker-scores.html">
+          <h4>Skills gap</h4>
+          <p class="muted">Which must-have skills recruiters look for that you're not mentioning yet.</p>
+          <span class="link">Open →</span>
+        </a>
+        <a class="insight-tile" href="/pages/seeker-scores.html">
+          <h4>Company-specific scores</h4>
+          <p class="muted">How you score against each job you've applied to, ranked.</p>
+          <span class="link">Open →</span>
+        </a>
+        <a class="insight-tile" href="/pages/seeker-resume.html">
+          <h4>Versions &amp; comparison</h4>
+          <p class="muted">Compare two resume versions side by side. What changed, what got better.</p>
+          <span class="link">Open →</span>
+        </a>
+      </div>
+    </section>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await api.post('/api/auth/logout', {});
+      window.location.href = '/';
+    });
+
+    let trendChart;
+    async function load() {
+      const me = await requireAuth('SEEKER');
+      if (!me) return;
+      document.getElementById('hello').textContent = 'Welcome back, ' + me.displayName.split(' ')[0] + '.';
+
+      const dash = (await api.get('/api/seeker/dashboard')).data;
+      const apps = (await api.get('/api/seeker/applications')).data;
+      document.getElementById('appsCount').textContent = apps.length;
+
+      // Score block
+      const ring = document.getElementById('ringBox');
+      const sub = document.getElementById('scoreSubtitle');
+      const subList = document.getElementById('subScoreList');
+      const recs = document.getElementById('recsList');
+      if (dash.activeScore) {
+        const gs = dash.activeScore;
+        ring.innerHTML = '';
+        const ringEl = animatedScoreRing(gs.totalScore);
+        ring.appendChild(ringEl);
+        const when = new Date(gs.scoredAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        sub.innerHTML = 'Last scored <b>' + when + '</b> · from your latest resume version.';
+        subList.innerHTML = `
+          <div class="ss-row"><span>Formatting</span><span class="bar"><i style="width:${gs.formattingScore/20*100}%"></i></span><span class="val">${fmtPct(gs.formattingScore)} / 20</span></div>
+          <div class="ss-row"><span>Completeness</span><span class="bar"><i style="width:${gs.completenessScore/15*100}%"></i></span><span class="val">${fmtPct(gs.completenessScore)} / 15</span></div>
+          <div class="ss-row"><span>Structure</span><span class="bar"><i style="width:${gs.structureScore/20*100}%"></i></span><span class="val">${fmtPct(gs.structureScore)} / 20</span></div>
+          <div class="ss-row"><span>Skills</span><span class="bar"><i style="width:${gs.skillsScore/25*100}%"></i></span><span class="val">${fmtPct(gs.skillsScore)} / 25</span></div>
+          <div class="ss-row"><span>Experience</span><span class="bar"><i style="width:${gs.experienceScore/20*100}%"></i></span><span class="val">${fmtPct(gs.experienceScore)} / 20</span></div>
+        `;
+        try {
+          const ex = JSON.parse(gs.explanationJson || '{}');
+          const r = (ex.topRecommendations || []);
+          if (r.length) {
+            recs.innerHTML = '<p class="muted" style="margin: 0 0 8px; font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;">Top recommendation</p>' +
+              r.slice(0, 1).map(t => '<div class="recommendation"><span class="idx">i</span><div>' + escapeHtml(t) + '</div></div>').join('');
+          } else { recs.innerHTML = ''; }
+        } catch (_) {}
+      } else {
+        ring.innerHTML = `<div class="score-ring" style="--pct:0">
+          <div style="text-align:center">
+            <div class="num">—</div>
+            <div class="lbl">/ 100</div>
+          </div>
+        </div>`;
+        sub.innerHTML = 'No resume uploaded yet. <a href="/pages/seeker-resume.html">Upload one →</a>';
+        subList.innerHTML = '';
+        recs.innerHTML = '';
+      }
+
+      // Recommended jobs
+      try {
+        const recsList = (await api.get('/api/seeker/recommendations')).data;
+        const wrap = document.getElementById('recJobsList');
+        wrap.innerHTML = recsList.length ? recsList.slice(0, 4).map(r => `
+          <div class="rec-card">
+            <div>
+              <div class="title">${escapeHtml(r.title)}</div>
+              <div class="meta">${escapeHtml(r.location || 'Anywhere')} · ${escapeHtml(r.employmentType || '')}</div>
+            </div>
+            <div class="right">
+              <div class="num">${fmtPct(r.totalScore)}</div>
+              <div class="meta">Must ${fmtPct(r.mustHave)} · Nice ${fmtPct(r.niceToHave)}</div>
+            </div>
+          </div>
+        `).join('') : '<p class="muted">No job recommendations yet. Apply to a few jobs to see your fit score across roles.</p>';
+      } catch (_) {}
+
+      // Trend
+      const hist = (await api.get('/api/seeker/resumes/history')).data;
+      const labels = hist.map(h => 'v' + h.resumeVersionId);
+      const data = hist.map(h => h.totalScore);
+      if (trendChart) trendChart.destroy();
+      trendChart = new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Score', data, borderColor: '#1a3a2e', backgroundColor: 'rgba(26,58,46,0.1)', tension: 0.3, fill: true, pointRadius: 3, pointBackgroundColor: '#1a3a2e' }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, ticks: { color: '#6b6258', font: { family: 'JetBrains Mono' } }, grid: { color: '#e8e3d8' } }, x: { ticks: { color: '#6b6258', font: { family: 'JetBrains Mono' } }, grid: { color: '#e8e3d8' } } } }
+      });
+    }
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/admin-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/admin-dashboard.html" class="active">Dashboard</a>
+        <a href="#" id="logoutBtn" class="btn small">Log out</a>
+        <a href="#" id="notifBell" class="bell" title="Notifications">🔔</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="toolbar">
+      <div>
+        <p class="muted" style="margin:0 0 4px; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">Admin</p>
+        <h1 style="margin:0">Platform overview</h1>
+      </div>
+    </div>
+
+    <!-- Demo data controls -->
+    <section style="margin-top: 24px;">
+      <div class="demo-seed-bar">
+        <div>
+          <h4 style="margin: 0 0 4px; font-family: var(--font-serif); font-size: 1.05rem;">One-click demo data</h4>
+          <p style="margin: 0; color: var(--muted); font-size: 0.9rem;">Populate the platform with 3 seekers, 3 recruiters, 6 jobs, 15 applications, and 1 pending report. Idempotent — safe to click twice.</p>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn primary" id="seedBtn">Seed demo data</button>
+        <button class="btn danger" id="resetBtn" style="margin-left: 8px;">Wipe all data</button>
+      </div>
+    </section>
+
+    <!-- Executive summary -->
+    <section style="margin-top: 32px;">
+      <div class="section-title">
+        <span class="num">01</span>
+        <h2>At a glance</h2>
+      </div>
+      <div class="admin-attention" id="metrics">
+        <div class="stat"><div class="num">—</div><div class="lbl">Users</div></div>
+        <div class="stat"><div class="num">—</div><div class="lbl">Jobs</div></div>
+        <div class="stat"><div class="num">—</div><div class="lbl">Applications</div></div>
+        <div class="stat"><div class="num">—</div><div class="lbl">Seekers</div></div>
+        <div class="stat"><div class="num">—</div><div class="lbl">Recruiters</div></div>
+        <div class="stat"><div class="num alert" id="pendingReports">—</div><div class="lbl">Pending reports</div></div>
+      </div>
+    </section>
+
+    <!-- Moderation queue -->
+    <section style="margin-top: 40px;">
+      <div class="section-title">
+        <span class="num">02</span>
+        <h2>Moderation queue</h2>
+        <span class="muted" style="margin-left:auto; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">Job reports from seekers</span>
+      </div>
+      <div id="reportsArea"></div>
+    </section>
+
+    <!-- Users -->
+    <section style="margin-top: 40px;">
+      <div class="section-title">
+        <span class="num">03</span>
+        <h2>Users</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="usersTable">
+          <thead><tr><th>ID</th><th>Role</th><th>Name</th><th>Email</th><th>Status</th><th>Last login</th><th>Action</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Jobs -->
+    <section style="margin-top: 40px;">
+      <div class="section-title">
+        <span class="num">04</span>
+        <h2>Jobs</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="jobsTable">
+          <thead><tr><th>ID</th><th>Title</th><th>Recruiter</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => { e.preventDefault(); await api.post('/api/auth/logout', {}); window.location.href = '/'; });
+
+    document.getElementById('seedBtn').addEventListener('click', async (e) => {
+      const btn = e.target; btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Seeding…';
+      try {
+        const r = await api.post('/api/admin/seed-demo-data', {});
+        const d = r.data;
+        if (d.alreadySeeded) {
+          toast('Demo data already present (' + d.seekers + ' seekers, ' + d.recruiters + ' recruiters, ' + d.jobs + ' jobs)', 'ok');
+        } else {
+          let msg = 'Seeded ' + d.seekers + ' seekers, ' + d.recruiters + ' recruiters, ' + d.jobs + ' jobs, ' + d.applications + ' applications';
+          if (d.demoAccounts) {
+            const a = d.demoAccounts;
+            msg += '\n\nDemo logins (password Demo123pass for seekers/recruiters):\n' +
+                   '• ' + a.seeker1 + '\n' +
+                   '• ' + a.seeker2 + '\n' +
+                   '• ' + a.seeker3 + '\n' +
+                   '• ' + a.recruiter1 + '\n' +
+                   '• ' + a.recruiter2 + '\n' +
+                   '• ' + a.recruiter3;
+          }
+          alert(msg);
+          load();
+        }
+      } catch (err) { toast('Seed failed', 'err'); }
+      btn.disabled = false; btn.textContent = orig;
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      if (!confirm('Wipe ALL data (users, jobs, applications, scores)? This cannot be undone.')) return;
+      await api.post('/api/admin/reset-demo-data', {});
+      toast('All data wiped', 'ok');
+      load();
+    });
+
+    async function load() {
+      const me = await requireAuth('ADMIN'); if (!me) return;
+      const m = (await api.get('/api/admin/dashboard')).data;
+      document.getElementById('metrics').innerHTML = `
+        <div class="stat"><div class="num">${m.totalUsers}</div><div class="lbl">Users</div></div>
+        <div class="stat"><div class="num">${m.totalJobs}</div><div class="lbl">Jobs</div></div>
+        <div class="stat"><div class="num">${m.totalApplications}</div><div class="lbl">Applications</div></div>
+        <div class="stat"><div class="num">${m.seekers}</div><div class="lbl">Seekers</div></div>
+        <div class="stat"><div class="num">${m.recruiters}</div><div class="lbl">Recruiters</div></div>
+        <div class="stat"><div class="num alert" id="pendingReports">—</div><div class="lbl">Pending reports</div></div>
+      `;
+
+      // Moderation queue
+      const reports = (await api.get('/api/admin/reports/jobs/all')).data;
+      const pending = reports.filter(r => r.status === 'PENDING');
+      document.getElementById('pendingReports').textContent = pending.length;
+      const ra = document.getElementById('reportsArea');
+      if (!reports.length) {
+        ra.innerHTML = '<p class="muted">No reports.</p>';
+      } else {
+        ra.innerHTML = `
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Reported</th><th>Job</th><th>Reason</th><th>Status</th><th>By</th><th>Action</th></tr></thead>
+              <tbody>${reports.map(r => `
+                <tr>
+                  <td>${fmtDate(r.createdAt)}</td>
+                  <td>${escapeHtml(r.jobTitle || '(deleted)')}</td>
+                  <td>${escapeHtml(r.reason)}${r.otherReason ? ': ' + escapeHtml(r.otherReason) : ''}</td>
+                  <td><span class="pill ${r.status}">${r.status}</span></td>
+                  <td>${escapeHtml(r.reportedBy || '—')}</td>
+                  <td>${r.status === 'PENDING' ? `
+                    <button class="btn ghost small" data-id="${r.reportId}" data-act="dismiss">Dismiss</button>
+                    <button class="btn small" data-id="${r.reportId}" data-act="closeJob">Close job</button>
+                    <button class="btn danger small" data-id="${r.reportId}" data-act="ban">Ban recruiter</button>
+                  ` : '<span class="muted">resolved</span>'}</td>
+                </tr>
+              `).join('')}</tbody>
+            </table>
+          </div>
+        `;
+        ra.querySelectorAll('button[data-act]').forEach(b => {
+          b.addEventListener('click', async () => {
+            const act = b.dataset.act === 'dismiss' ? 'DISMISS' : b.dataset.act === 'closeJob' ? 'CLOSE_JOB' : 'DISABLE_RECRUITER';
+            await api.patch('/api/admin/reports/jobs/' + b.dataset.id + '/resolve', { action: act });
+            load();
+          });
+        });
+      }
+
+      // Users
+      const users = (await api.get('/api/admin/users')).data;
+      const ut = document.querySelector('#usersTable tbody');
+      ut.innerHTML = users.map(u => `
+        <tr>
+          <td>${u.id}</td><td>${u.role}</td><td>${escapeHtml(u.displayName)}</td><td>${escapeHtml(u.email)}</td>
+          <td><span class="tag ${u.accountStatus === 'ACTIVE' ? 'OPEN' : 'CLOSED'}">${u.accountStatus}</span></td>
+          <td>${u.lastLoginAt ? fmtDate(u.lastLoginAt) : '—'}</td>
+          <td><button class="btn ghost small" data-id="${u.id}" data-status="${u.accountStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE'}" data-act="toggle">${u.accountStatus === 'ACTIVE' ? 'Disable' : 'Enable'}</button></td>
+        </tr>
+      `).join('');
+      ut.querySelectorAll('button[data-act=toggle]').forEach(b => {
+        b.addEventListener('click', async () => {
+          await api.patch('/api/admin/users/' + b.dataset.id + '/status', { status: b.dataset.status });
+          load();
+        });
+      });
+
+      // Jobs
+      const jobs = (await api.get('/api/admin/jobs')).data;
+      const jt = document.querySelector('#jobsTable tbody');
+      jt.innerHTML = jobs.map(j => `
+        <tr>
+          <td>${j.id}</td><td>${escapeHtml(j.title)}</td><td>${j.recruiterId}</td>
+          <td><span class="tag ${j.status}">${j.status}</span></td>
+          <td>${fmtDate(j.createdAt)}</td>
+          <td>
+            <button class="btn ghost small" data-id="${j.id}" data-status="CLOSED" data-act="close">Close</button>
+            <button class="btn ghost small" data-id="${j.id}" data-status="OPEN" data-act="open">Open</button>
+          </td>
+        </tr>
+      `).join('');
+      jt.querySelectorAll('button[data-act=close], button[data-act=open]').forEach(b => {
+        b.addEventListener('click', async () => {
+          await api.patch('/api/admin/jobs/' + b.dataset.id + '/status', { status: b.dataset.status });
+          load();
+        });
+      });
+    }
+    load();
+  </script>
+</body>
+</html>

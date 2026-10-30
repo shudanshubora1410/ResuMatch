@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jobs · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/seeker-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/seeker-dashboard.html">Dashboard</a>
+        <a href="/pages/seeker-resume.html">Resume</a>
+        <a href="/pages/seeker-jobs.html" class="active">Jobs</a>
+        <a href="/pages/seeker-scores.html">My scores</a>
+        <a href="/pages/seeker-applications.html">Applications</a>
+        <a href="#" id="logoutBtn" class="btn small">Log out</a>
+        <a href="#" id="notifBell" class="bell" title="Notifications">🔔</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="toolbar">
+      <div>
+        <p class="muted" style="margin:0 0 4px; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">Open positions</p>
+        <h1 style="margin:0">Jobs</h1>
+        <p class="muted" style="margin: 8px 0 0;">Filter by location, skill, or company. Apply with your active resume version.</p>
+      </div>
+    </div>
+
+    <div class="jobs-toolbar">
+      <div class="filter">
+        <label>Location</label>
+        <input class="input" id="fLocation" placeholder="e.g. Delhi" />
+      </div>
+      <div class="filter">
+        <label>Skill</label>
+        <input class="input" id="fSkill" placeholder="e.g. React" />
+      </div>
+      <div class="filter">
+        <label>Title</label>
+        <input class="input" id="fTitle" placeholder="e.g. Backend" />
+      </div>
+      <div class="filter">
+        <label>Resume to apply with</label>
+        <select class="select" id="resumeSel"></select>
+      </div>
+      <button class="btn" id="searchBtn">Apply filters</button>
+    </div>
+
+    <div id="jobsList" class="job-list" style="margin-top: 32px;"></div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => { e.preventDefault(); await api.post('/api/auth/logout', {}); window.location.href = '/'; });
+
+    async function loadResumes() {
+      const list = (await api.get('/api/seeker/resumes')).data;
+      const sel = document.getElementById('resumeSel');
+      sel.innerHTML = list.length
+        ? list.map(v => `<option value="${v.versionId}">v${v.versionNumber} — ${escapeHtml(v.versionLabel)} (${v.totalScore == null ? 'no score' : fmtPct(v.totalScore) + '/100'})</option>`).join('')
+        : '<option value="">Upload a resume first</option>';
+    }
+
+    async function load() {
+      const me = await requireAuth('SEEKER'); if (!me) return;
+      await loadResumes();
+      const params = new URLSearchParams();
+      const l = document.getElementById('fLocation').value.trim(); if (l) params.set('location', l);
+      const s = document.getElementById('fSkill').value.trim(); if (s) params.set('skill', s);
+      const t = document.getElementById('fTitle').value.trim(); if (t) params.set('title', t);
+      const jobs = (await api.get('/api/seeker/jobs?' + params.toString())).data;
+      const wrap = document.getElementById('jobsList');
+      wrap.innerHTML = jobs.length ? jobs.map(j => {
+        const must = (j.skills || []).filter(s => s.importance === 'MUST_HAVE').map(s => s.name);
+        const nice = (j.skills || []).filter(s => s.importance === 'NICE_TO_HAVE').map(s => s.name);
+        return `
+          <div class="job-row">
+            <div>
+              <div class="title">${escapeHtml(j.title)}</div>
+              <div class="meta">${escapeHtml(j.location || 'Anywhere')} · ${escapeHtml(j.employmentType || 'Full-time')}</div>
+              ${j.description ? `<div class="desc">${escapeHtml(j.description.slice(0, 200))}${j.description.length > 200 ? '…' : ''}</div>` : ''}
+              <div class="skills">
+                ${must.slice(0, 4).map(s => '<span class="chip miss">' + escapeHtml(s) + '</span>').join(' ')}
+                ${nice.slice(0, 3).map(s => '<span class="chip nice">' + escapeHtml(s) + '</span>').join(' ')}
+              </div>
+            </div>
+            <div class="score-col">
+              <div class="lbl">Apply</div>
+            </div>
+            <div class="actions">
+              <button class="btn primary small" data-id="${j.id}" data-act="apply">Apply</button>
+              <a href="#" class="report-link" data-id="${j.id}" data-act="report">Report</a>
+            </div>
+          </div>
+        `;
+      }).join('') : '<div class="empty">No jobs match your filters.</div>';
+
+      wrap.querySelectorAll('button[data-act=apply]').forEach(b => {
+        b.addEventListener('click', async () => {
+          const resumeVersionId = document.getElementById('resumeSel').value;
+          if (!resumeVersionId) { toast('Upload a resume first', 'err'); return; }
+          try {
+            const r = await api.post('/api/seeker/jobs/' + b.dataset.id + '/apply', { resumeVersionId: Number(resumeVersionId) });
+            toast('Applied. Score: ' + (r.data.companyScore == null ? 'computing…' : fmtPct(r.data.companyScore)), 'ok');
+          } catch (_) {}
+        });
+      });
+      wrap.querySelectorAll('a[data-act=report]').forEach(a => {
+        a.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const reason = prompt('Why are you reporting this job?\n\n1. Fake company\n2. Scam or payment request\n3. Misleading skills\n4. Other (please specify)', '1');
+          if (!reason) return;
+          const map = { '1': 'FAKE_COMPANY', '2': 'SCAM_OR_PAYMENT', '3': 'MISLEADING_SKILLS', '4': 'OTHER' };
+          const code = map[reason.trim()] || 'OTHER';
+          const other = code === 'OTHER' ? prompt('Describe the issue:') || '' : null;
+          await api.post('/api/seeker/jobs/' + a.dataset.id + '/report', { reason: code, otherReasonText: other });
+          toast('Report submitted. Thank you.', 'ok');
+        });
+      });
+    }
+    document.getElementById('searchBtn').addEventListener('click', load);
+    load();
+  </script>
+</body>
+</html>

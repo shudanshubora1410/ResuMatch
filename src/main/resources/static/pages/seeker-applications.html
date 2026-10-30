@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Applications · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/seeker-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/seeker-dashboard.html">Dashboard</a>
+        <a href="/pages/seeker-resume.html">Resume</a>
+        <a href="/pages/seeker-jobs.html">Jobs</a>
+        <a href="/pages/seeker-scores.html">My scores</a>
+        <a href="/pages/seeker-applications.html">Applications</a>
+        <!--BELL--><a href="#" id="notifBell" class="bell" title="Notifications" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--line);color:var(--text);margin-right:8px;">🔔</a><a href="#" id="logoutBtn" class="btn small">Log out</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1>My applications</h1>
+    <p class="muted">Track every job you've applied to, with status badges and your fit score.</p>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="table" id="appsTable">
+          <thead><tr><th>Job</th><th>Status</th><th>Score</th><th>Applied</th><th>Last update</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => { e.preventDefault(); await api.post('/api/auth/logout', {}); window.location.href = '/'; });
+    async function load() {
+      const me = await requireAuth('SEEKER'); if (!me) return;
+      const data = (await api.get('/api/seeker/applications')).data;
+      const tbody = document.querySelector('#appsTable tbody');
+      tbody.innerHTML = data.length ? data.map(a => `
+        <tr>
+          <td>${escapeHtml(a.jobTitle || ('Job #' + a.jobId))}</td>
+          <td><span class="tag ${a.status}">${a.status}</span></td>
+          <td>${a.totalScore == null ? '—' : fmtPct(a.totalScore)}</td>
+          <td>${fmtDate(a.appliedAt)}</td>
+          <td>${fmtDate(a.statusUpdatedAt)}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="5"><div class="empty">No applications yet. <a href="/pages/seeker-jobs.html">Browse jobs →</a></div></td></tr>';
+    }
+    load();
+  </script>
+</body>
+</html>

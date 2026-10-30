@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>New job · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/recruiter-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/recruiter-dashboard.html">Dashboard</a>
+        <a href="/pages/recruiter-job-new.html">New job</a>
+        <!--BELL--><a href="#" id="notifBell" class="bell" title="Notifications" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--line);color:var(--text);margin-right:8px;">🔔</a><a href="#" id="logoutBtn" class="btn small">Log out</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1 id="pageTitle">Post a new job</h1>
+    <p class="muted">Add must-have and nice-to-have skills with weights. The engine turns them into a fair, explainable score.</p>
+
+    <div class="card">
+      <form id="jobForm">
+        <div class="grid grid-2">
+          <div>
+            <div class="form-row">
+              <label>Job title</label>
+              <input class="input" name="title" required placeholder="Java Backend Intern" />
+            </div>
+            <div class="form-row">
+              <label>Location</label>
+              <input class="input" name="location" placeholder="Delhi / Remote" />
+            </div>
+            <div class="form-row">
+              <label>Employment type</label>
+              <select class="select" name="employmentType">
+                <option>Full-time</option><option>Internship</option><option>Part-time</option><option>Contract</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div class="form-row">
+              <label>Description</label>
+              <textarea class="input" name="description" id="descArea" rows="8" placeholder="Role summary, responsibilities, etc."></textarea>
+              <div class="toolbar" style="margin-top:8px;">
+                <button type="button" class="btn small accent" id="aiSuggestBtn">✨ Suggest with AI</button>
+                <span class="muted" id="aiHint" style="font-size:0.8rem">Generates a draft from your title + skills. You can edit before publishing.</span>
+              </div>
+            </div>
+            <div class="form-row" style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div>
+                <label>Min experience (years)</label>
+                <input class="input" name="minExperienceYears" type="number" min="0" value="0" />
+              </div>
+              <div>
+                <label>Max experience (years)</label>
+                <input class="input" name="maxExperienceYears" type="number" min="0" value="2" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 14px">Skills &amp; weights</h3>
+        <p class="muted">Use names that match what candidates would write on resumes (e.g. "Java", "Spring Boot", "React").</p>
+        <div class="table-wrap">
+          <table class="table" id="skillsTable">
+            <thead><tr><th>Skill</th><th>Importance</th><th>Weight</th><th></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><input class="input" name="skill" value="Java" placeholder="e.g. Java" required /></td>
+                <td>
+                  <select class="select" name="importance">
+                    <option value="MUST_HAVE" selected>Must have</option>
+                    <option value="NICE_TO_HAVE">Nice to have</option>
+                  </select>
+                </td>
+                <td><input class="input" name="weight" type="number" step="0.5" min="0.5" value="10" style="max-width:100px" /></td>
+                <td><button type="button" class="btn small" data-act="remove">Remove</button></td>
+              </tr>
+              <tr>
+                <td><input class="input" name="skill" value="Spring Boot" placeholder="e.g. Spring Boot" required /></td>
+                <td>
+                  <select class="select" name="importance">
+                    <option value="MUST_HAVE" selected>Must have</option>
+                    <option value="NICE_TO_HAVE">Nice to have</option>
+                  </select>
+                </td>
+                <td><input class="input" name="weight" type="number" step="0.5" min="0.5" value="8" style="max-width:100px" /></td>
+                <td><button type="button" class="btn small" data-act="remove">Remove</button></td>
+              </tr>
+              <tr>
+                <td><input class="input" name="skill" value="MySQL" placeholder="e.g. MySQL" required /></td>
+                <td>
+                  <select class="select" name="importance">
+                    <option value="MUST_HAVE" selected>Must have</option>
+                    <option value="NICE_TO_HAVE">Nice to have</option>
+                  </select>
+                </td>
+                <td><input class="input" name="weight" type="number" step="0.5" min="0.5" value="6" style="max-width:100px" /></td>
+                <td><button type="button" class="btn small" data-act="remove">Remove</button></td>
+              </tr>
+              <tr>
+                <td><input class="input" name="skill" value="Docker" placeholder="e.g. Docker" /></td>
+                <td>
+                  <select class="select" name="importance">
+                    <option value="MUST_HAVE">Must have</option>
+                    <option value="NICE_TO_HAVE" selected>Nice to have</option>
+                  </select>
+                </td>
+                <td><input class="input" name="weight" type="number" step="0.5" min="0.5" value="3" style="max-width:100px" /></td>
+                <td><button type="button" class="btn small" data-act="remove">Remove</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button type="button" class="btn small" id="addSkill">+ Add skill row</button>
+
+        <div style="margin-top: 20px; display:flex; gap: 10px;">
+          <button class="btn primary" type="submit">Publish job</button>
+          <a href="/pages/recruiter-dashboard.html" class="btn ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (function() {
+      function addRow(skill, importance, weight) {
+        skill = skill == null ? '' : skill;
+        importance = importance || 'MUST_HAVE';
+        weight = weight == null ? 5 : weight;
+        const tbody = document.querySelector('#skillsTable tbody');
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input class="input" name="skill" value="${escapeHtml(skill)}" placeholder="e.g. Java" required /></td>
+          <td>
+            <select class="select" name="importance">
+              <option value="MUST_HAVE" ${importance === 'MUST_HAVE' ? 'selected' : ''}>Must have</option>
+              <option value="NICE_TO_HAVE" ${importance === 'NICE_TO_HAVE' ? 'selected' : ''}>Nice to have</option>
+            </select>
+          </td>
+          <td><input class="input" name="weight" type="number" step="0.5" min="0.5" value="${weight}" style="max-width:100px" /></td>
+          <td><button type="button" class="btn small" data-act="remove">Remove</button></td>
+        `;
+        tr.querySelector('[data-act=remove]').addEventListener('click', () => tr.remove());
+        tbody.appendChild(tr);
+      }
+
+      // wire remove buttons on rows already in the HTML
+      document.querySelectorAll('#skillsTable tbody [data-act=remove]').forEach(b => {
+        b.addEventListener('click', () => b.closest('tr').remove());
+      });
+
+      // add row
+      const addBtn = document.getElementById('addSkill');
+      if (addBtn) addBtn.addEventListener('click', () => addRow());
+
+      // auth-aware greeting
+      requireAuth('RECRUITER').then(me => {
+        if (me) {
+          const t = document.getElementById('pageTitle');
+          if (t) t.textContent = me.displayName + ' — post a new job';
+        }
+      });
+
+      document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+        e.preventDefault();
+        await api.post('/api/auth/logout', {});
+        window.location.href = '/';
+      });
+
+      // submit
+      const aiBtn = document.getElementById('aiSuggestBtn');
+      if (aiBtn) aiBtn.addEventListener('click', async () => {
+        const title = document.querySelector('input[name=title]').value.trim();
+        if (!title) { toast('Add a job title first', 'err'); return; }
+        const skills = [...document.querySelectorAll('#skillsTable tbody tr')]
+          .map(tr => (tr.querySelector('[name=skill]').value || '').trim())
+          .filter(Boolean);
+        if (!skills.length) { toast('Add at least one skill first', 'err'); return; }
+        const type = document.querySelector('select[name=employmentType]').value;
+        aiBtn.disabled = true;
+        const orig = aiBtn.textContent;
+        aiBtn.textContent = '✨ Generating…';
+        try {
+          const r = await api.post('/api/ai/suggest-description', { title, skills, employmentType: type });
+          const ta = document.getElementById('descArea');
+          ta.value = r.data.description;
+          const hint = document.getElementById('aiHint');
+          hint.textContent = r.data.aiConfigured
+            ? 'Generated by Gemini. Feel free to edit before publishing.'
+            : 'Generated from a built-in template (AI quota not available right now). Edit freely.';
+          toast('Description suggested', 'ok');
+        } catch (_) { toast('Failed to generate', 'err'); }
+        aiBtn.disabled = false; aiBtn.textContent = orig;
+      });
+
+      const form = document.getElementById('jobForm');
+      if (form) form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const skills = [...document.querySelectorAll('#skillsTable tbody tr')].map(tr => ({
+          name: (tr.querySelector('[name=skill]').value || '').trim(),
+          importance: tr.querySelector('[name=importance]').value,
+          weight: Number(tr.querySelector('[name=weight]').value)
+        })).filter(s => s.name);
+        if (!skills.length) { toast('Add at least one skill row', 'err'); return; }
+        const body = {
+          title: fd.get('title'),
+          location: fd.get('location'),
+          employmentType: fd.get('employmentType'),
+          description: fd.get('description'),
+          minExperienceYears: fd.get('minExperienceYears') ? Number(fd.get('minExperienceYears')) : null,
+          maxExperienceYears: fd.get('maxExperienceYears') ? Number(fd.get('maxExperienceYears')) : null,
+          skills
+        };
+        try {
+          const r = await api.post('/api/recruiter/jobs', body);
+          toast('Job published', 'ok');
+          setTimeout(() => window.location.href = '/pages/recruiter-applicants.html?jobId=' + r.data.id, 500);
+        } catch (_) {}
+      });
+    })();
+  </script>
+</body>
+</html>

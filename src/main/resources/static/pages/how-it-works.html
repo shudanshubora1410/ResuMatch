@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>How scoring works · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/pages/how-it-works.html" class="active">How it works</a>
+        <a href="/pages/seeker-login.html" class="btn small">Seeker login</a>
+        <a href="/pages/recruiter-login.html" class="btn small primary">Recruiter login</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="formula-doc container">
+    <p class="muted" style="font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 32px 0 8px;">Documentation</p>
+    <h1>How scoring works</h1>
+    <p style="font-size: 1.15rem; line-height: 1.6; color: var(--text-soft); max-width: 60ch;">ResuMatch uses a rule-based engine. No AI model, no third-party API. Every point in the score traces to a rule in a single file: <code>AtsWeights.java</code>. This page documents the exact formula.</p>
+
+    <hr />
+
+    <h2>01 · The general ATS score</h2>
+    <p>A resume uploaded by a seeker gets a general score out of 100, made of five sub-scores. Each sub-score has a maximum, and the engine sums them up.</p>
+
+    <table class="formula-table">
+      <thead><tr><th>Sub-score</th><th>Max</th><th class="num-h">Points</th><th>How it is computed</th></tr></thead>
+      <tbody>
+        <tr><td>Formatting</td><td>20</td><td class="num-h">20</td><td>Deductions for each formatting flag. Missing email/phone/sections cost up to 5 points each.</td></tr>
+        <tr><td>Completeness</td><td>15</td><td class="num-h">15</td><td>Email present (+5), phone (+4), name (+3), summary section (+3).</td></tr>
+        <tr><td>Structure</td><td>20</td><td class="num-h">20</td><td>Up to 6 standard sections detected (summary, skills, experience, education, projects, certifications).</td></tr>
+        <tr><td>Skills</td><td>25</td><td class="num-h">25</td><td>Distinct canonical skills found, capped at 14. Penalty if no skills section.</td></tr>
+        <tr><td>Experience</td><td>20</td><td class="num-h">20</td><td>Years estimated from date ranges, plus presence of projects section.</td></tr>
+      </tbody>
+    </table>
+
+    <p>The total is the sum of the five sub-scores, capped at 100. A perfect resume scores 100.</p>
+
+    <hr />
+
+    <h2>02 · The company-specific score</h2>
+    <p>When a seeker applies to a job, the engine computes a second score using the job's weighted skill rows. The recruiter defines each skill's importance and weight when posting the job.</p>
+
+    <table class="formula-table">
+      <thead><tr><th>Component</th><th>Max</th><th class="num-h">Points</th><th>How it is computed</th></tr></thead>
+      <tbody>
+        <tr><td>Must-have skills</td><td>50</td><td class="num-h">50</td><td><code>sum(weight of matched must-haves) / sum(weight of all must-haves) × 50</code></td></tr>
+        <tr><td>Nice-to-have skills</td><td>20</td><td class="num-h">20</td><td>Same formula applied to nice-to-haves.</td></tr>
+        <tr><td>Experience</td><td>15</td><td class="num-h">15</td><td>Years of experience, capped at 5 years.</td></tr>
+        <tr><td>Education</td><td>5</td><td class="num-h">5</td><td>Degree keyword + section presence.</td></tr>
+        <tr><td>Resume health</td><td>10</td><td class="num-h">10</td><td>Formatting deductions; capped lower if the general score is poor.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Worked example</h3>
+    <p>A job asking for Java (must, weight 10), Spring Boot (must, weight 8), MySQL (must, weight 6), Docker (nice, weight 3) — a resume that mentions Java + Spring Boot + MySQL:</p>
+
+    <div class="formula-math">
+      <div class="line"><span>Must-have earned</span><span class="num">10 + 8 + 6 = 24</span></div>
+      <div class="line"><span>Must-have total</span><span class="num">10 + 8 + 6 = 24</span></div>
+      <div class="line result"><span>Must-have score</span><span class="num">50 / 50</span></div>
+      <div class="line dim"><span>+ Nice-to-have</span><span class="num">0 / 20</span></div>
+      <div class="line dim"><span>+ Experience, education, formatting</span><span class="num">28 / 30</span></div>
+      <div class="line final"><span>Total</span><span class="num">78 / 100</span></div>
+    </div>
+
+    <p>The candidate sees the same number the recruiter does. The same formula. The same breakdown. Nothing hidden.</p>
+
+    <hr />
+
+    <h2>03 · Alias matching</h2>
+    <p>The engine ships with 50+ canonical skills and 200+ aliases. <code>reactjs</code>, <code>react.js</code>, and <code>React</code> all resolve to <code>React</code>; <code>node js</code>, <code>nodejs</code>, and <code>node.js</code> all resolve to <code>Node.js</code>. The matcher uses a longest-first greedy scan so multi-word skills like "Spring Boot" don't get matched as "Spring".</p>
+
+    <hr />
+
+    <h2>04 · What we don't do</h2>
+    <ul style="line-height: 1.8; color: var(--text-soft);">
+      <li>We do not call any external API. No OpenAI, no Google, no third-party ATS.</li>
+      <li>We do not train or fine-tune a model. There is no model.</li>
+      <li>We do not share resumes with anyone. The recruiter only sees what the seeker applied with.</li>
+      <li>We do not surface a score to the recruiter that the seeker cannot also see.</li>
+    </ul>
+
+    <hr />
+
+    <p style="text-align: center; margin: 48px 0 0;">
+      <a href="/" class="btn ghost">← Back to home</a>
+      <a href="/pages/seeker-register.html" class="btn primary" style="margin-left: 8px;">Create seeker account</a>
+    </p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Applicants · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/recruiter-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/recruiter-dashboard.html">Dashboard</a>
+        <a href="/pages/recruiter-job-new.html">New job</a>
+        <a href="#" id="logoutBtn" class="btn small">Log out</a>
+        <a href="#" id="notifBell" class="bell" title="Notifications">🔔</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="toolbar">
+      <div>
+        <p class="muted" style="margin:0 0 4px; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">Applicants for</p>
+        <h1 id="title" style="margin:0">Applicants</h1>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" id="analyticsBtn">Analytics</a>
+    </div>
+
+    <!-- Filters as a thin bar -->
+    <div class="dossier-filters">
+      <div class="filter">
+        <label>Status</label>
+        <select class="select" id="fStatus">
+          <option value="">All</option>
+          <option value="APPLIED">Applied</option>
+          <option value="UNDER_REVIEW">Under review</option>
+          <option value="SHORTLISTED">Shortlisted</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+      <div class="filter">
+        <label>Min score</label>
+        <input class="input" id="fMin" type="number" placeholder="0" />
+      </div>
+      <div class="filter">
+        <label>Max score</label>
+        <input class="input" id="fMax" type="number" placeholder="100" />
+      </div>
+      <div class="filter">
+        <label>Sort</label>
+        <select class="select" id="fSort">
+          <option value="">Score · high to low</option>
+          <option value="score-asc">Score · low to high</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
+      <button class="btn small" id="applyFilters">Apply</button>
+      <button class="btn ghost small" id="clearFilters">Clear</button>
+    </div>
+
+    <!-- Bulk actions -->
+    <div class="bulk-bar">
+      <strong style="font-size: 0.88rem;">Bulk action</strong>
+      <span class="muted" style="font-size: 0.88rem;">Set status for applicants scoring</span>
+      <input class="input" id="bulkMin" type="number" value="80" style="max-width:80px" />
+      <span class="muted">to</span>
+      <input class="input" id="bulkMax" type="number" value="100" style="max-width:80px" />
+      <span class="muted">→</span>
+      <select class="select" id="bulkStatus" style="max-width: 160px;">
+        <option value="SHORTLISTED">Shortlist</option>
+        <option value="REJECTED">Reject</option>
+        <option value="UNDER_REVIEW">Under review</option>
+        <option value="APPLIED">Reset to Applied</option>
+      </select>
+      <button class="btn primary small" id="runBulk">Run</button>
+    </div>
+
+    <!-- Dossier list -->
+    <div id="dossierList" class="dossier-list" style="margin-top: 24px;"></div>
+  </div>
+
+  <!-- Side drawer for applicant detail -->
+  <div id="drawer" class="drawer">
+    <div class="drawer-inner">
+      <div class="toolbar">
+        <h3 id="drawerTitle" style="margin:0">Candidate</h3>
+        <div class="spacer"></div>
+        <button class="btn small" id="closeDrawer">Close</button>
+      </div>
+      <div id="drawerBody"></div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const jobId = new URLSearchParams(location.search).get('jobId');
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => { e.preventDefault(); await api.post('/api/auth/logout', {}); window.location.href = '/'; });
+    document.getElementById('closeDrawer').addEventListener('click', () => document.getElementById('drawer').classList.remove('open'));
+    document.getElementById('analyticsBtn').addEventListener('click', async () => {
+      const r = await api.get('/api/recruiter/jobs/' + jobId + '/analytics');
+      alert('Analytics\n\nTotal: ' + r.data.totalApplicants +
+            '\nShortlisted: ' + r.data.shortlisted +
+            '\nRejected: ' + r.data.rejected +
+            '\nAvg score: ' + fmtPct(r.data.averageScore) +
+            '\nTop missing: ' + (r.data.topMissingSkills || []).map(s => s.skill + ' (' + s.count + ')').join(', '));
+    });
+
+    async function load() {
+      const me = await requireAuth('RECRUITER'); if (!me) return;
+      const job = (await api.get('/api/recruiter/jobs/' + jobId)).data;
+      document.getElementById('title').textContent = job.title;
+      const params = new URLSearchParams();
+      const s = document.getElementById('fStatus').value;
+      const min = document.getElementById('fMin').value;
+      const max = document.getElementById('fMax').value;
+      const sort = document.getElementById('fSort').value;
+      if (s) params.set('status', s);
+      if (min) params.set('minScore', min);
+      if (max) params.set('maxScore', max);
+      if (sort) params.set('sort', sort);
+      const data = (await api.get('/api/recruiter/jobs/' + jobId + '/applicants?' + params.toString())).data;
+      const list = document.getElementById('dossierList');
+      list.innerHTML = data.length ? data.map((a, i) => {
+        const ts = a.totalScore;
+        const cls = ts == null ? '' : (ts >= 80 ? 'high' : ts >= 50 ? 'mid' : 'low');
+        const when = new Date(a.appliedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        return `
+          <div class="dossier">
+            <div class="rank">#${(i + 1).toString().padStart(2, '0')}</div>
+            <div class="name">Seeker #${a.seekerId}<span class="id">applied ${when}</span></div>
+            <div class="dossier-score">
+              <div class="num ${cls}">${ts == null ? '—' : fmtPct(ts)}</div>
+              <div class="lbl">${ts == null ? 'no score' : 'of 100'}</div>
+            </div>
+            <div class="dossier-meta"><span class="tag ${a.status}">${a.status.replace('_', ' ')}</span></div>
+            <div class="dossier-actions">
+              <button class="btn small" data-id="${a.applicationId}" data-act="open">Open</button>
+              <button class="btn ghost small" data-id="${a.applicationId}" data-act="resume">Resume</button>
+              <select class="select" data-id="${a.applicationId}" data-act="status" style="max-width: 130px;">
+                <option value="APPLIED" ${a.status === 'APPLIED' ? 'selected' : ''}>Applied</option>
+                <option value="UNDER_REVIEW" ${a.status === 'UNDER_REVIEW' ? 'selected' : ''}>Reviewing</option>
+                <option value="SHORTLISTED" ${a.status === 'SHORTLISTED' ? 'selected' : ''}>Shortlist</option>
+                <option value="REJECTED" ${a.status === 'REJECTED' ? 'selected' : ''}>Reject</option>
+              </select>
+            </div>
+          </div>
+        `;
+      }).join('') : '<div class="empty">No applicants match these filters.</div>';
+
+      list.querySelectorAll('button[data-act=open]').forEach(b => {
+        b.addEventListener('click', () => openDrawer(b.dataset.id));
+      });
+      list.querySelectorAll('button[data-act=resume]').forEach(b => {
+        b.addEventListener('click', () => openResumePreview(b.dataset.id));
+      });
+      list.querySelectorAll('select[data-act=status]').forEach(s => {
+        s.addEventListener('change', async () => {
+          await api.patch('/api/recruiter/applications/' + s.dataset.id + '/status', { status: s.value, notes: '' });
+          load();
+        });
+      });
+    }
+
+    document.getElementById('applyFilters').addEventListener('click', load);
+    document.getElementById('clearFilters').addEventListener('click', () => {
+      ['fStatus','fMin','fMax','fSort'].forEach(id => document.getElementById(id).value = '');
+      load();
+    });
+    document.getElementById('runBulk').addEventListener('click', async () => {
+      const status = document.getElementById('bulkStatus').value;
+      const min = Number(document.getElementById('bulkMin').value);
+      const max = Number(document.getElementById('bulkMax').value);
+      if (!confirm(`Set status "${status}" for applicants scoring ${min}–${max}?`)) return;
+      const r = await api.post('/api/recruiter/jobs/' + jobId + '/bulk-status', { status, minScore: min, maxScore: max });
+      toast('Updated ' + r.data.updated + ' applicant(s)', 'ok');
+      load();
+    });
+
+    async function openDrawer(id) {
+      const app = (await api.get('/api/recruiter/jobs/' + jobId + '/applicants')).data.find(a => a.applicationId == id);
+      const hist = (await api.get('/api/recruiter/applications/' + id + '/history')).data;
+      const m = app.matchedSkills || { mustHave: [], niceToHave: [] };
+      const ms = app.missingSkills || { mustHave: [], niceToHave: [] };
+      let exp = {};
+      try { exp = JSON.parse(app.explanation || '{}'); } catch (_) {}
+      document.getElementById('drawerTitle').textContent = 'Seeker #' + app.seekerId;
+      const total = app.totalScore;
+      const cls = total == null ? '' : (total >= 80 ? 'high' : total >= 50 ? 'mid' : 'low');
+      document.getElementById('drawerBody').innerHTML = `
+        <div class="drawer-score">
+          <div class="score-ring" style="--pct:${total || 0}; width: 120px; height: 120px;">
+            <div style="text-align:center"><div class="num">${total == null ? '—' : fmtPct(total)}</div><div class="lbl">/ 100</div></div>
+          </div>
+          <div style="flex:1;">
+            <div class="ss-row"><span>Must-have</span><span class="bar"><i style="width:${(exp.mustHave && exp.mustHave.score || 0)/50*100}%"></i></span><span class="val">${fmtPct(exp.mustHave && exp.mustHave.score || 0)} / 50</span></div>
+            <div class="ss-row"><span>Nice-to-have</span><span class="bar"><i style="width:${(exp.niceToHave && exp.niceToHave.score || 0)/20*100}%"></i></span><span class="val">${fmtPct(exp.niceToHave && exp.niceToHave.score || 0)} / 20</span></div>
+            <div class="ss-row"><span>Experience</span><span class="bar"><i style="width:${(exp.experience && exp.experience.score || 0)/15*100}%"></i></span><span class="val">${fmtPct(exp.experience && exp.experience.score || 0)} / 15</span></div>
+            <div class="ss-row"><span>Education</span><span class="bar"><i style="width:${(exp.education && exp.education.score || 0)/5*100}%"></i></span><span class="val">${fmtPct(exp.education && exp.education.score || 0)} / 5</span></div>
+            <div class="ss-row"><span>Formatting</span><span class="bar"><i style="width:${(exp.formatting && exp.formatting.score || 0)/10*100}%"></i></span><span class="val">${fmtPct(exp.formatting && exp.formatting.score || 0)} / 10</span></div>
+          </div>
+        </div>
+
+        <h4 style="margin-top: 24px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Matched · must have</h4>
+        <div class="chips">${(m.mustHave || []).map(x => `<span class="chip match">${escapeHtml(x)}</span>`).join('') || '<span class="muted">none</span>'}</div>
+        <h4 style="margin-top: 16px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Missing · must have</h4>
+        <div class="chips">${(ms.mustHave || []).map(x => `<span class="chip miss">${escapeHtml(x)}</span>`).join('') || '<span class="muted">none</span>'}</div>
+
+        <h4 style="margin-top: 24px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Recommendations</h4>
+        ${(app.recommendations || []).map((r, i) => '<div class="recommendation"><span class="idx">' + (i+1) + '</span><div>' + escapeHtml(r) + '</div></div>').join('')}
+
+        <h4 style="margin-top: 24px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Status history</h4>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem;">
+          ${hist.map(h => '<li style="padding: 8px 0; border-bottom: 1px solid var(--line);"><span class="muted" style="font-family: var(--font-mono); font-size: 0.78rem;">' + fmtDate(h.changedAt) + '</span> &nbsp; ' + escapeHtml(h.oldStatus || 'NEW') + ' → <b>' + escapeHtml(h.newStatus) + '</b>' + (h.notes ? ' <span class="muted">— ' + escapeHtml(h.notes) + '</span>' : '') + '</li>').join('')}
+        </ul>
+      `;
+      document.getElementById('drawer').classList.add('open');
+    }
+
+    async function openResumePreview(id) {
+      const d = (await api.get('/api/recruiter/applications/' + id + '/resume-preview')).data;
+      document.getElementById('drawerTitle').textContent = 'Resume — Seeker #' + d.seekerId;
+      document.getElementById('drawerBody').innerHTML = `
+        <div class="resume-preview-card">
+          <div class="toolbar" style="margin-bottom: 16px;">
+            <h4 style="margin:0">${escapeHtml(d.extractedName || '—')}</h4>
+            <div class="spacer"></div>
+            <a class="btn primary small" href="${d.downloadUrl}" target="_blank">Open file</a>
+          </div>
+          <div class="kv">
+            <div class="k">Email</div><div class="v">${escapeHtml(d.extractedEmail || '—')}</div>
+            <div class="k">Phone</div><div class="v">${escapeHtml(d.extractedPhone || '—')}</div>
+            <div class="k">File</div><div class="v">${escapeHtml(d.originalFileName)} · ${(d.fileSize/1024).toFixed(1)} KB</div>
+            <div class="k">Experience</div><div class="v">${d.experienceYears || 0} years</div>
+          </div>
+          <h4 style="margin-top: 20px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Extracted skills</h4>
+          <div class="chips">${(d.skills || []).map(s => '<span class="chip match">' + escapeHtml(s) + '</span>').join('') || '<span class="muted">No canonical skills matched.</span>'}</div>
+        </div>
+      `;
+      document.getElementById('drawer').classList.add('open');
+    }
+    load();
+  </script>
+</body>
+</html>

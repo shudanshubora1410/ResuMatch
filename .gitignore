@@ -1,0 +1,54 @@
+# Build output
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+nohup.out
+
+# Spring Boot
+HELP.md
+.spring/
+.springBoot/
+
+# Application runtime data
+# H2 file database — local state, never commit
+data/
+*.mv.db
+*.trace.db
+
+# Uploaded user resumes — never commit (PII)
+storage/resumes/
+storage/*.pdf
+storage/*.docx
+storage/*.txt
+
+# Local config / secrets — copy .env.example to .env and edit
+.env
+.env.local
+application-local.properties
+application-local.yml
+secrets.*
+
+# OS-specific
+.mvn/wrapper/maven-wrapper.jar

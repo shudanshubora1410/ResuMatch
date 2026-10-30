@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Recruiter signup · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/recruiter-login.html" class="btn small">I already have an account</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="max-width: 520px; padding-top: 60px;">
+    <div class="card">
+      <h2>Create your recruiter account</h2>
+      <p class="muted">Set up your company profile and post your first job in minutes.</p>
+      <form id="f">
+        <div class="form-row">
+          <label>Company name</label>
+          <input class="input" name="companyName" required placeholder="TechNova Pvt Ltd" />
+        </div>
+        <div class="form-row">
+          <label>Your name</label>
+          <input class="input" name="recruiterName" required placeholder="Riya Mehta" />
+        </div>
+        <div class="form-row">
+          <label>Work email</label>
+          <input class="input" name="email" type="email" required placeholder="riya@technova.com" />
+        </div>
+        <div class="form-row">
+          <label>Phone</label>
+          <input class="input" name="phone" required placeholder="9876543210" />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input class="input" name="password" type="password" required minlength="8" />
+        </div>
+        <button class="btn primary" style="width:100%">Create account</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('f').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const r = await api.post('/api/auth/register/recruiter', Object.fromEntries(fd));
+        toast('Account created', 'ok');
+        setTimeout(() => window.location.href = r.data.redirect || '/pages/recruiter-dashboard.html', 300);
+      } catch (_) {}
+    });
+  </script>
+</body>
+</html>

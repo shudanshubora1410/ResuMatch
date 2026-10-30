@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Recruiter dashboard · ResuMatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/pages/recruiter-dashboard.html" class="brand"><div class="brand-mark">R</div> ResuMatch</a>
+      <div class="nav-links">
+        <a href="/pages/recruiter-dashboard.html" class="active">Dashboard</a>
+        <a href="/pages/recruiter-job-new.html">New job</a>
+        <a href="#" id="logoutBtn" class="btn small">Log out</a>
+        <a href="#" id="notifBell" class="bell" title="Notifications">🔔</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="toolbar">
+      <div>
+        <p class="muted" style="margin:0 0 4px; font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;">Recruiter dashboard</p>
+        <h1 id="hello" style="margin:0">Good morning</h1>
+      </div>
+      <div class="spacer"></div>
+      <a href="/pages/recruiter-job-new.html" class="btn primary">+ New job</a>
+    </div>
+
+    <!-- Executive summary -->
+    <section style="margin-top: 32px;">
+      <div class="section-title">
+        <span class="num">01</span>
+        <h2>At a glance</h2>
+      </div>
+      <div class="exec-summary" id="execSummary">
+        <div class="exec-stat"><div class="num">—</div><div class="lbl">Total jobs</div></div>
+        <div class="exec-stat"><div class="num">—</div><div class="lbl">Open</div></div>
+        <div class="exec-stat"><div class="num">—</div><div class="lbl">Total applicants</div></div>
+        <div class="exec-stat"><div class="num">—</div><div class="lbl">Avg fit score</div></div>
+      </div>
+    </section>
+
+    <!-- Attention card -->
+    <section style="margin-top: 40px;">
+      <div class="section-title">
+        <span class="num">02</span>
+        <h2>Needs your attention</h2>
+      </div>
+      <div id="attention"></div>
+    </section>
+
+    <!-- All jobs -->
+    <section style="margin-top: 40px;">
+      <div class="section-title">
+        <span class="num">03</span>
+        <h2>Your jobs</h2>
+      </div>
+      <div id="jobsList" class="job-list"></div>
+    </section>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => { e.preventDefault(); await api.post('/api/auth/logout', {}); window.location.href = '/'; });
+
+    async function load() {
+      const me = await requireAuth('RECRUITER'); if (!me) return;
+      const first = me.displayName.split(' ')[0];
+      document.getElementById('hello').textContent = 'Good morning, ' + first + '.';
+
+      const data = (await api.get('/api/recruiter/dashboard')).data;
+      const summary = document.getElementById('execSummary');
+      const avgScore = data.jobs.length ? await computeAvgScore() : 0;
+      summary.innerHTML = `
+        <div class="exec-stat"><div class="num">${data.totalJobs}</div><div class="lbl">Total jobs</div></div>
+        <div class="exec-stat"><div class="num">${data.openJobs}</div><div class="lbl">Open</div></div>
+        <div class="exec-stat"><div class="num">${data.totalApplicants}</div><div class="lbl">Total applicants</div></div>
+        <div class="exec-stat"><div class="num">${fmtPct(avgScore)}</div><div class="lbl">Avg fit score</div></div>
+      `;
+
+      // Attention
+      const att = document.getElementById('attention');
+      if (data.totalApplicants === 0) {
+        att.innerHTML = '<p class="muted">No applicants yet. Make sure your open jobs are visible to seekers.</p>';
+      } else {
+        const newApps = data.jobs.filter(j => j.applicantCount > 0);
+        if (newApps.length === 0) {
+          att.innerHTML = '<p class="muted">All caught up. New applicants will surface here.</p>';
+        } else {
+          att.innerHTML = newApps.slice(0, 3).map(j => `
+            <a class="attention-card" href="/pages/recruiter-applicants.html?jobId=${j.id}">
+              <span class="ic">→</span>
+              <div class="body">
+                <h4>${escapeHtml(j.title)}</h4>
+                <p>${j.applicantCount} applicant${j.applicantCount === 1 ? '' : 's'} waiting. Ranked by fit score.</p>
+              </div>
+              <span class="muted" style="font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;">Open →</span>
+            </a>
+          `).join('');
+        }
+      }
+
+      // Jobs list
+      const list = document.getElementById('jobsList');
+      list.innerHTML = data.jobs.length ? data.jobs.map(j => `
+        <div class="job-row">
+          <div>
+            <div class="title">${escapeHtml(j.title)}</div>
+            <div class="meta">${escapeHtml(j.location || 'Anywhere')} · created ${fmtDate(j.createdAt)}</div>
+          </div>
+          <div class="score-col">
+            <div class="num">${j.applicantCount}</div>
+            <div class="lbl">applicants</div>
+          </div>
+          <div class="actions">
+            <span class="tag ${j.status}">${j.status}</span>
+            <a class="btn small" href="/pages/recruiter-applicants.html?jobId=${j.id}">Open</a>
+            <a class="btn ghost small" href="/pages/recruiter-job-edit.html?id=${j.id}">Edit</a>
+            <button class="btn ghost small" data-id="${j.id}" data-status="${j.status === 'OPEN' ? 'CLOSED' : 'OPEN'}" data-act="toggle">${j.status === 'OPEN' ? 'Close' : 'Open'}</button>
+          </div>
+        </div>
+      `).join('') : '<div class="empty">No jobs yet. <a href="/pages/recruiter-job-new.html">Post your first job →</a></div>';
+
+      list.querySelectorAll('button[data-act=toggle]').forEach(b => {
+        b.addEventListener('click', async () => {
+          await api.patch('/api/recruiter/jobs/' + b.dataset.id + '/status', { status: b.dataset.status });
+          load();
+        });
+      });
+    }
+
+    async function computeAvgScore() {
+      const jobs = (await api.get('/api/recruiter/jobs')).data;
+      let total = 0, count = 0;
+      for (const j of jobs) {
+        const apps = (await api.get('/api/recruiter/jobs/' + j.id + '/applicants')).data;
+        for (const a of apps) if (a.totalScore != null) { total += a.totalScore; count++; }
+      }
+      return count ? total / count : 0;
+    }
+
+    load();
+  </script>
+</body>
+</html>
