@@ -1,10 +1,18 @@
 services:
   - type: web
     name: resumatch
-    runtime: docker
+    runtime: java
     plan: free
     region: singapore
     autoDeploy: true
+
+    # Native Java runtime (not Docker).
+    # Render caches the Maven repository between builds, so the first build
+    # downloads ~150MB of dependencies once and every build after that is
+    # ~1 minute. A Docker build would run Maven inside a container from
+    # scratch every time (5-8 min) and can hit the free-tier build timeout.
+    buildCommand: mvn -B -DskipTests package
+    startCommand: java -Dserver.port=$PORT -Dserver.address=0.0.0.0 -XX:+UseG1GC -XX:MaxRAMPercentage=70 -jar target/resumatch.jar
 
     # /api/health is a pure-liveness endpoint: no database, no JPA, no
     # repository beans. It answers in a few milliseconds, so Render never
@@ -32,6 +40,6 @@ services:
       - key: RESUMATCH_AUTO_SEED
         value: "true"
 
-      # Render injects PORT automatically; the Dockerfile reads it.
+      # Render injects PORT automatically.
       - key: JAVA_TOOL_OPTIONS
-        value: -XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:+UseSerialGC -XX:TieredStopAtLevel=1
+        value: -XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:TieredStopAtLevel=1

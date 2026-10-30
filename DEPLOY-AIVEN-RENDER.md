@@ -55,10 +55,18 @@ From the Aiven **Connect** tab, split the URI:
 
 | Field | Value |
 |---|---|
-| Runtime | `Docker` |
+| Runtime | `Java` |
+| Build Command | `mvn -B -DskipTests package` |
+| Start Command | `java -Dserver.port=$PORT -Dserver.address=0.0.0.0 -XX:+UseG1GC -XX:MaxRAMPercentage=70 -jar target/resumatch.jar` |
 | Instance Type | `Free` (or `Starter` $7/mo for no spin-down) |
 | Health Check Path | `/api/health` |
 | Region | same as your Aiven region |
+
+> **Why native Java and not Docker?** Render caches the Maven repository between
+> builds, so the first build downloads dependencies once and every build after
+> that is ~1 minute. A Docker build runs Maven inside a container from scratch
+> every time (5-8 min) and can hit the free-tier build timeout. The `Dockerfile`
+> is still in the repo for VPS / Azure / Fly.io deployments.
 
 4. **Environment Variables:**
 
