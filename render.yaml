@@ -1,18 +1,19 @@
 services:
   - type: web
     name: resumatch
-    runtime: java
+    runtime: docker
     plan: free
     region: singapore
     autoDeploy: true
 
-    # Native Java runtime (not Docker).
-    # Render caches the Maven repository between builds, so the first build
-    # downloads ~150MB of dependencies once and every build after that is
-    # ~1 minute. A Docker build would run Maven inside a container from
-    # scratch every time (5-8 min) and can hit the free-tier build timeout.
-    buildCommand: mvn -B -DskipTests package
-    startCommand: java -Dserver.port=$PORT -Dserver.address=0.0.0.0 -XX:+UseG1GC -XX:MaxRAMPercentage=70 -jar target/resumatch.jar
+    # Render has no native Java runtime. Their supported languages are
+    # Node.js/Bun, Python, Ruby, Go, Rust and Elixir - a Java/Spring Boot
+    # app has to be deployed as a Docker image. The Dockerfile in this repo
+    # builds the fat JAR with Maven and ships it on a slim JRE.
+    #
+    # The build takes a few minutes the first time because Maven downloads
+    # ~150MB of dependencies inside the container. The dependency layer is
+    # cached separately from the source, so later builds are much faster.
 
     # /api/health is a pure-liveness endpoint: no database, no JPA, no
     # repository beans. It answers in a few milliseconds, so Render never
@@ -23,23 +24,25 @@ services:
     healthCheckPath: /api/health
 
     envVars:
-      # MySQL (Aiven or any other MySQL 8 host).
-      # DB_HOST, DB_PORT, DB_USER, DB_PASS and DB_NAME are set in the
-      # Render dashboard - never commit database credentials to a repo.
+      # MySQL (Aiven). The DB_* values are set in the Render dashboard -
+      # never commit database credentials to a repo.
       - key: SPRING_PROFILES_ACTIVE
         value: mysql
 
-      # Aiven requires TLS. If your Aiven service enforces it, set DB_URL
-      # instead of the individual DB_* variables, e.g.
-      #   jdbc:mysql://host:port/resumatch?useSSL=true&requireSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      # - key: DB_URL
-      #   sync: false
+      # Aiven requires TLS. The container entrypoint builds a JVM truststore
+      # from the bundled CA certificate and injects a TLS-trusting DB_URL
+      # automatically, so no DB_URL needs to be set here.
+      #
+      # If Aiven rotates the CA, mount the new certificate through Render
+      # Secret Files and point this at it:
+      # - key: AIVEN_CA_FILE
+      #   value: /etc/secrets/aiven-project-ca.pem
 
       # Seed the demo dataset on boot only when the database is empty.
       # Safe to leave on: it never overwrites existing data.
       - key: RESUMATCH_AUTO_SEED
         value: "true"
 
-      # Render injects PORT automatically.
+      # Render injects PORT automatically; the entrypoint reads it.
       - key: JAVA_TOOL_OPTIONS
-        value: -XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:TieredStopAtLevel=1
+        value: -XX:+UseG1GC -XX:MaxRAMPercentage=70 -XX:+UseSerialGC -XX:TieredStopAtLevel=1
