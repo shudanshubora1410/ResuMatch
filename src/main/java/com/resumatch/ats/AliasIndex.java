@@ -49,24 +49,27 @@ public class AliasIndex {
     public SkillScan scan(String text) {
         String norm = TextNormalizer.normalize(text);
         SkillScan scan = new SkillScan();
-        // mask out matched spans to prevent overlapping. We process aliases in
-        // length-descending order, but to ensure shorter aliases don't sneak in
-        // inside a longer match (e.g. "java" inside "javascript") we keep a single
-        // monotonic `from` cursor across all aliases. The cursor is the earliest
-        // index that hasn't been claimed by a previous match.
+        // Mask out matched spans to prevent overlapping. We process aliases in
+        // length-descending order, so a longer alias (e.g. "spring boot") claims
+        // its characters first and a shorter alias (e.g. "java") can no longer
+        // match inside that span. The mask alone handles the overlap problem.
+        //
+        // Do NOT reintroduce a monotonic cursor here. A previous version kept a
+        // cursor that only moved forward, which meant a long alias matching late
+        // in the text (e.g. "spring data jpa" in a trailing skills list) caused
+        // every shorter alias appearing EARLIER in the resume to be skipped.
+        // Resumes scored far too low on skills for that reason. The mask already
+        // gives us the overlap protection the cursor was meant to provide.
         char[] mask = norm.toCharArray();
-        int cursor = 0;
         for (String alias : sortedAliases) {
-            // start searching at the current cursor; but a shorter alias could
-            // appear AFTER a longer alias match, so we also need to scan the
-            // whole rest of the text — just skip spans that are already masked.
+            // Scan the whole text for this alias; skip only spans that a
+            // previous (longer) alias has already claimed.
             int from = 0;
             while (true) {
                 int idx = norm.indexOf(alias, from);
                 if (idx < 0) break;
-                // only count this match if it starts at or after the cursor AND
-                // the character at idx hasn't been masked by a previous longer match
-                if (idx < cursor || mask[idx] == ' ') {
+                // the character at idx has been masked by a previous longer match
+                if (mask[idx] == ' ') {
                     from = idx + 1;
                     continue;
                 }
@@ -77,8 +80,6 @@ public class AliasIndex {
                     for (int k = idx; k < idx + alias.length(); k++) {
                         if (mask[k] != ' ') mask[k] = ' ';
                     }
-                    // advance the cursor past this match
-                    cursor = Math.max(cursor, idx + alias.length());
                     Long skillId = aliasToSkillId.get(alias);
                     if (skillId != null) {
                         scan.skillIds.add(skillId);
