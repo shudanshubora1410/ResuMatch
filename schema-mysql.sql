@@ -96,7 +96,11 @@ CREATE TABLE IF NOT EXISTS `company_scores` (
   `nice_to_have_score` double NOT NULL,
   `recommendations_json` longtext COLLATE utf8mb4_unicode_ci,
   `total_score` double NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  -- One score row per application. Without this, the What-if simulator could
+  -- insert a second row for the same application and the recruiter's applicant
+  -- list would fail with Duplicate key when grouping scores by application_id.
+  UNIQUE KEY `uk_company_scores_application` (`application_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS `email_otps` (
   `id` bigint NOT NULL AUTO_INCREMENT,

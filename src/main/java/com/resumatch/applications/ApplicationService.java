@@ -104,10 +104,19 @@ public class ApplicationService {
         return app;
     }
 
-    @Transactional
-    public CompanyScoreService.ScoreOutput computeAndStoreCompanyScore(ApplicationEntity app,
-                                                                       ResumeExtractionEntity ex,
-                                                                       List<String> hypotheticalSkills) {
+    /**
+     * Computes a company score WITHOUT persisting anything.
+     *
+     * <p>Used by the What-if simulator. The simulator answers "what would my
+     * score be if I also had these skills?" - it must not write a score row,
+     * because a second row for the same application makes the recruiter's
+     * applicant list blow up with "Duplicate key" (Collectors.toMap over
+     * company_scores grouped by application_id) and it would overwrite the
+     * real score for the application with a hypothetical one.
+     */
+    public CompanyScoreService.ScoreOutput computeCompanyScore(ApplicationEntity app,
+                                                                ResumeExtractionEntity ex,
+                                                                List<String> hypotheticalSkills) {
         JobPostingEntity job = jobRepo.findById(app.jobId).orElseThrow();
         List<JobSkillEntity> jobSkills = jobSkillRepo.findByJobId(job.id);
         List<ResumeFormatFlagEntity> flags = flagRepo.findByResumeVersionId(app.resumeVersionId);
@@ -115,8 +124,16 @@ public class ApplicationService {
         AliasIndex.SkillScan hyp = aliasIndexService.get().scanHypothetical(hypotheticalSkills);
         GeneralScoreEntity gs = generalScoreRepo.findFirstByResumeVersionIdOrderByScoredAtDesc(app.resumeVersionId).orElse(null);
 
-        CompanyScoreService.ScoreOutput out = companyScoreService.compute(ex, jobSkills, flags, scan, hyp,
+        return companyScoreService.compute(ex, jobSkills, flags, scan, hyp,
                 gs == null ? null : gs.totalScore);
+    }
+
+    @Transactional
+    public CompanyScoreService.ScoreOutput computeAndStoreCompanyScore(ApplicationEntity app,
+                                                                       ResumeExtractionEntity ex,
+                                                                       List<String> hypotheticalSkills) {
+        CompanyScoreService.ScoreOutput out = computeCompanyScore(app, ex, hypotheticalSkills);
+        GeneralScoreEntity gs = generalScoreRepo.findFirstByResumeVersionIdOrderByScoredAtDesc(app.resumeVersionId).orElse(null);
 
         CompanyScoreEntity cs = new CompanyScoreEntity();
         cs.applicationId = app.id;

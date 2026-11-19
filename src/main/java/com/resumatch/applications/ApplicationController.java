@@ -125,28 +125,27 @@ public class ApplicationController {
         @SuppressWarnings("unchecked")
         List<String> hypothetical = (List<String>) body.getOrDefault("hypotheticalSkills", List.of());
 
-        // apply rules but never persist a fake application
+        // What-if must never write to the database. It answers "what would my
+        // score be if I also had these skills?" - persisting that result would
+        // create a second company_scores row for the same application, which
+        // crashes the recruiter's applicant list ("Duplicate key") and would
+        // overwrite the real score with a hypothetical one.
         var app = appRepo.findByJobIdAndSeekerId(jobId, u.id).orElse(null);
         var job = jobRepo.findById(jobId).orElseThrow();
         var ex = extractionRepo.findFirstByResumeVersionIdOrderByCreatedAtDesc(resumeVersionId).orElseThrow();
         if (app == null) {
-            // compute transient score without persisting
-            var skills = jobSkillRepo.findByJobId(job.id);
-            var out = appService.computeAndStoreCompanyScore(
-                    persistTransientApplication(u.id, jobId, resumeVersionId), ex, hypothetical);
+            // transient application object - never saved, used only so the
+            // scoring code has the jobId / resumeVersionId it needs
+            var transientApp = new ApplicationEntity();
+            transientApp.seekerId = u.id;
+            transientApp.jobId = jobId;
+            transientApp.resumeVersionId = resumeVersionId;
+            transientApp.status = ApplicationStatus.APPLIED;
+            var out = appService.computeCompanyScore(transientApp, ex, hypothetical);
             return ApiResponse.ok(toSimDto(out, job.title));
         }
-        var out = appService.computeAndStoreCompanyScore(app, ex, hypothetical);
+        var out = appService.computeCompanyScore(app, ex, hypothetical);
         return ApiResponse.ok(toSimDto(out, job.title));
-    }
-
-    private ApplicationEntity persistTransientApplication(Long seekerId, Long jobId, Long resumeVersionId) {
-        ApplicationEntity a = new ApplicationEntity();
-        a.seekerId = seekerId;
-        a.jobId = jobId;
-        a.resumeVersionId = resumeVersionId;
-        a.status = ApplicationStatus.APPLIED;
-        return appRepo.save(a);
     }
 
     private Map<String, Object> toSimDto(com.resumatch.ats.CompanyScoreService.ScoreOutput out, String jobTitle) {

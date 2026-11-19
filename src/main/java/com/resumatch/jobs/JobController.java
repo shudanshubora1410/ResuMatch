@@ -106,8 +106,13 @@ public class JobController {
         if (!j.recruiterId.equals(u.id)) throw new SecurityException("Not your job");
 
         var apps = applicationRepo.findByJobIdOrderByAppliedAtDesc(jobId);
+        // Keep the most recently computed score per application. The merge
+        // function matters: without it, an application that somehow has two
+        // company_scores rows makes toMap throw "Duplicate key" and takes the
+        // whole recruiter dashboard down with a 500.
         var scores = companyScoreRepo.findByApplicationIdIn(apps.stream().map(a -> a.id).toList())
-                .stream().collect(Collectors.toMap(s -> s.applicationId, s -> s));
+                .stream().collect(Collectors.toMap(s -> s.applicationId, s -> s,
+                        (older, newer) -> newer.computedAt.isAfter(older.computedAt) ? newer : older));
         List<Map<String, Object>> out = new ArrayList<>();
         for (var a : apps) {
             CompanyScoreEntity cs = scores.get(a.id);
