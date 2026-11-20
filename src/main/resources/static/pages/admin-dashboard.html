@@ -31,7 +31,7 @@
       <div class="demo-seed-bar">
         <div>
           <h4 style="margin: 0 0 4px; font-family: var(--font-serif); font-size: 1.05rem;">One-click demo data</h4>
-          <p style="margin: 0; color: var(--muted); font-size: 0.9rem;">Populate the platform with 3 seekers, 3 recruiters, 6 jobs, 15 applications, and 1 pending report. Idempotent — safe to click twice.</p>
+          <p style="margin: 0; color: var(--muted); font-size: 0.9rem;" id="demoSeedNote">Populate the platform with 3 seekers, 3 recruiters, 6 jobs, 15 applications, and 1 pending report. Idempotent — safe to click twice.</p>
         </div>
         <div class="spacer"></div>
         <button class="btn primary" id="seedBtn">Seed demo data</button>
@@ -134,6 +134,18 @@
     async function load() {
       const me = await requireAuth('ADMIN'); if (!me) return;
       const m = (await api.get('/api/admin/dashboard')).data;
+
+      // Hide the "Seed demo data" button once demo data is present. Seeding is
+      // idempotent, so clicking it again does nothing useful - it would just
+      // say "already present". "Wipe all data" stays visible so the platform
+      // can be reset and re-seeded.
+      const seedBtn = document.getElementById('seedBtn');
+      const seedNote = document.getElementById('demoSeedNote');
+      const hasDemoData = m.totalUsers > 0;
+      seedBtn.style.display = hasDemoData ? 'none' : '';
+      seedNote.textContent = hasDemoData
+        ? 'Demo data is already loaded (' + m.totalUsers + ' users, ' + m.totalJobs + ' jobs, ' + m.totalApplications + ' applications). Use "Wipe all data" to clear it and start fresh.'
+        : 'Populate the platform with 3 seekers, 3 recruiters, 6 jobs, 15 applications, and 1 pending report. Idempotent � safe to click twice.';
       document.getElementById('metrics').innerHTML = `
         <div class="stat"><div class="num">${m.totalUsers}</div><div class="lbl">Users</div></div>
         <div class="stat"><div class="num">${m.totalJobs}</div><div class="lbl">Jobs</div></div>

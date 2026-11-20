@@ -119,7 +119,7 @@
             <span class="tag ${j.status}">${j.status}</span>
             <a class="btn small" href="/pages/recruiter-applicants.html?jobId=${j.id}">Open</a>
             <a class="btn ghost small" href="/pages/recruiter-job-edit.html?id=${j.id}">Edit</a>
-            <button class="btn ghost small" data-id="${j.id}" data-status="${j.status === 'OPEN' ? 'CLOSED' : 'OPEN'}" data-act="toggle">${j.status === 'OPEN' ? 'Close' : 'Open'}</button>
+            <button class="btn ghost small" data-id="${j.id}" data-status="${j.status === 'OPEN' ? 'CLOSED' : 'OPEN'}" data-act="toggle">${j.status === 'OPEN' ? 'Unpublish' : 'Publish'}</button>
           </div>
         </div>
       `).join('') : '<div class="empty">No jobs yet. <a href="/pages/recruiter-job-new.html">Post your first job →</a></div>';

@@ -114,7 +114,7 @@ public class AuthService {
         return u;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
     public UserEntity login(String identifier, String password, String ip) {
         if (identifier == null || identifier.isBlank()) throw new IllegalArgumentException("Identifier required");
         Instant since = Instant.now().minus(LOCK_MINUTES, ChronoUnit.MINUTES);
@@ -126,7 +126,11 @@ public class AuthService {
         }
         UserEntity u = userRepo.findByEmail(identifier.trim().toLowerCase())
                 .or(() -> userRepo.findByDisplayName(identifier.trim()))
-                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+                .orElse(null);
+        if (u == null) {
+            recordAttempt(identifier, ip, false);
+            throw new IllegalArgumentException("Invalid credentials");
+        }
         if (u.accountStatus != AccountStatus.ACTIVE) throw new IllegalArgumentException("Account is " + u.accountStatus);
 
         boolean ok = passwords.verify(password, u.passwordHash);
