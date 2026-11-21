@@ -45,7 +45,7 @@ docker run -p 8080:8080 \
   -e DB_PORT=3306 \
   -e DB_NAME=resumatch \
   -e DB_USER=root \
-  -e DB_PASS=Root@1234 \
+  -e DB_PASS=your_password \
   resumatch
 ```
 
