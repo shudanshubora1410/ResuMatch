@@ -1,5 +1,7 @@
 # ResuMatch
 
+[![CI](https://github.com/shudanshubora1410/ResuMatch/actions/workflows/ci.yml/badge.svg)](https://github.com/shudanshubora1410/ResuMatch/actions/workflows/ci.yml)
+
 A zero-cost, full-stack recruitment platform that helps job seekers improve resume quality and helps recruiters shortlist candidates using a transparent, rule-based ATS scoring engine.
 
 > Java 17 + Spring Boot 3.2.5 + H2 / MySQL 8 + Apache PDFBox. No paid services, no AI/ML libraries in the scoring engine.
