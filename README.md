@@ -227,7 +227,7 @@ java -jar target/resumatch.jar
 - For real persistence, point `DB_HOST` / `DB_USER` / `DB_PASS` at a managed
   MySQL and set `SPRING_PROFILES_ACTIVE=mysql`.
 
-Full deployment guide and troubleshooting: **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+Full deployment guide and troubleshooting: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ---
 
