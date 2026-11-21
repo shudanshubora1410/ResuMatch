@@ -13,7 +13,7 @@ set DB_HOST=localhost
 set DB_PORT=3306
 set DB_NAME=resumatch
 set DB_USER=root
-set DB_PASS=Root@1234
+if not defined DB_PASS set DB_PASS=change_me
 
 REM ---- Pick profile based on DB_HOST ----
 if defined DB_HOST goto use_mysql

@@ -9,7 +9,7 @@ export DB_HOST=localhost
 export DB_PORT=3306
 export DB_NAME=resumatch
 export DB_USER=root
-export DB_PASS=Root@1234
+export DB_PASS="${DB_PASS:-change_me}"   # set your own password in the environment; never commit it
 
 # ---- Auto-detect ----
 if [ -n "$DB_HOST" ]; then
