@@ -104,7 +104,10 @@ public class ReportService {
 
             // THE SCORE — typographic, no ring
             drawLabel(cs, m, y, "GENERAL ATS SCORE");
-            y -= 30;
+            // Move down by the full cap height of the 80pt glyph (80 * 0.718
+            // = 57.4pt) plus breathing room, otherwise the big number's
+            // ascenders run up into the label above and obscure it.
+            y -= 70;
             double total = gs == null ? 0 : gs.totalScore;
             // big serif-style number — Helvetica Bold mimics display weight in PDF
             drawText(cs, String.valueOf((int) Math.round(total)), m, y, 80, PDType1Font.HELVETICA_BOLD, ACCENT);
